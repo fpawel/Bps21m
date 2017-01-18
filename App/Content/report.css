@@ -1,0 +1,43 @@
+*{
+    margin:0;
+    padding:0;
+ }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-size: 20px;
+}
+body{
+    background-color:MintCream  ;
+}
+
+td{
+    padding : 2px;
+}
+
+.pasport-block{
+    padding: 10px 
+}
+
+.header1{
+    font-size: 130%;
+    font-weight: bold;
+    padding-bottom: 10px;
+    margin: auto;
+    width: 40%;
+}
+
+.product-type{
+    font-size: 110%; 
+    font-style: italic;
+}
+
+.product-type-1{
+    font-weight: bold; 
+    font-style: normal;    
+}
+
+.value {
+    font-weight: bold; 
+}

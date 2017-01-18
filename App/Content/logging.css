@@ -1,0 +1,35 @@
+*{
+    margin:0;
+    padding:0;
+ }
+
+body{
+    background-color : MintCream  ;
+    font: normal 14px Consolas;
+}
+
+.date {
+    color:DarkSlateGrey  ;
+    margin : 0px 10px 0px 0px;
+}
+
+.time {
+    color:ForestGreen ;
+    margin : 0px 10px 0px 0px;
+}
+
+.info {
+    color:navy;
+}
+
+.error {
+    color:red;
+}
+
+.warn {
+    color:maroon;
+}
+
+.debug {
+    color:grey;
+}
