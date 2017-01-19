@@ -206,6 +206,6 @@ type DelayType =
         | DelayAdjust -> "корректировка показаний"
 
     member x.What = DelayType.what x
-    member x.Prop = DelayType.prop x
+    member x.Prop = DelayType.getPropertyName x
 
-    static member prop =  FSharpValue.unionCaseName
+    static member getPropertyName (x:DelayType) =  FSharpValue.unionCaseName x

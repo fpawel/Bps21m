@@ -148,11 +148,6 @@
       <Project>{e305a89a-00ad-47f8-ac0e-95431a94bd37}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\NumericMethod\NumericMethod.csproj">
-      <Name>NumericMethod</Name>
-      <Project>{e482afd5-9fb2-4d1c-a54f-64f797c198cd}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\Widgets\Widgets.csproj">
       <Name>Widgets</Name>
       <Project>{258d6e94-185b-487f-b9e2-70f45e7ecbad}</Project>
