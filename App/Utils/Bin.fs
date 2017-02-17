@@ -72,5 +72,6 @@ let analitBCD6ToDecimal = function
         Some( sign*(d'100'000*100000m + d10'000*10000m + d1000*1000m + d100*100m + d10*10m + d1 )/( pow 10m coma ) ) 
     | _ -> None
 
-
 let (|AnalitBCD6|_|) = analitBCD6ToDecimal
+
+

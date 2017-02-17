@@ -13,7 +13,6 @@ open Bps21
 open Bps21.View.Products
 
 type private P = Bps21.ViewModel.Product
-type private VE = Bps21.Alchemy.ValueError
 
 
 module TabsheetVars =

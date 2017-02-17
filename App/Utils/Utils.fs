@@ -195,3 +195,28 @@ type Double with
         | None -> Double.NaN
         | Some x -> x
 
+
+module Byte =
+    type Bit = 
+        | Bit0 | Bit1 | Bit2 | Bit3 | Bit4 | Bit5 | Bit6 | Bit7
+
+        static member bits = [ Bit0 ; Bit1 ; Bit2 ; Bit3 ; Bit4 ; Bit5 ; Bit6 ; Bit7 ]
+
+        static member GetNumber x =
+            List.findIndex ((=) x) Bit.bits
+
+        member x.Number  =
+            Bit.GetNumber x 
+            
+
+type System.Byte with
+
+    member x.Bit bit =    
+        let n = Byte.Bit.GetNumber bit
+        let mask = 1uy <<< n
+        let masked = x &&& mask
+        masked <> 0uy
+
+    static member GetBit n  (x:byte)=    
+        x.Bit n
+

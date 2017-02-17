@@ -83,8 +83,6 @@ module HardwareInfo =
 
 type Tabsheet = 
     | TabsheetParty
-    | TabsheetChart
-    | TabsheetKefs
     | TabsheetScenary
     | TabsheetVars
     | TabsheetErrors
@@ -93,16 +91,12 @@ type Tabsheet =
     
     static member title = function
         | TabsheetParty ->   "Партия"
-        | TabsheetChart ->   "График"
-        | TabsheetKefs ->    "Коэф-ты"
         | TabsheetScenary -> "Сценарий"
         | TabsheetVars ->    "Данные"
         | TabsheetErrors ->  "Погрешность"   
 
     static member descr = function
         | TabsheetParty ->   "Партия настраиваемых приборов"
-        | TabsheetChart ->   "Графики измеряемых параметров приборов партии"
-        | TabsheetKefs ->    "Коэффициенты приборов партии"
         | TabsheetScenary -> "Сценарий настройки приборов партии"
         | TabsheetVars ->    "Данные приборов партии"
         | TabsheetErrors ->  "Измеренная погрешность концентрации приборов партии"   

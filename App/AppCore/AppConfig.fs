@@ -11,6 +11,8 @@ open System.Drawing.Design
 
 open MyWinForms.Converters
 
+
+
 module View = 
     type Grid =  
         {   mutable ColWidths : int list
@@ -19,11 +21,13 @@ module View =
     type Config =  
         {   mutable PartyId : string
             mutable Grids : Map<string,Grid>   
-            mutable ScnDetailTextSplitterDistance : int   }
+            mutable ScnDetailTextSplitterDistance : int  
+            mutable DevVars : Set<Bps21.DevVar> }
         static member create() = 
             {   PartyId = ""
                 Grids = Map.empty
-                ScnDetailTextSplitterDistance = 0  }
+                ScnDetailTextSplitterDistance = 0  
+                DevVars = Set.empty}
 
 [<TypeConverter(typeof<ExpandableObjectConverter>)>]
 type Termochamber = 
@@ -94,41 +98,15 @@ type Hardware =
     {   
         [<DisplayName("СОМ порт приборов")>]
         [<Description("Настройка параметров приёмопередачи СОМ порта, к которому подключены настраиваемые приборы по RS 485")>]
-        mutable ComportProducts : ComportConfig.Config        
+        mutable Comport : ComportConfig.Config        
         
-        [<DisplayName("Термокамера")>]
-        [<Description("Настройка параметров термокамеры")>]
-        mutable Termochamber : Termochamber
-
-        [<DisplayName("Пневмоблок")>]
-        [<Description("Настройка параметров пневмоблока")>]
-        mutable Pneumoblock : Pneumoblock 
         
-        [<DisplayName("Подогрев плат")>]
-        [<Description("Настройка параметров устройства подогрева плат")>]
-        mutable WarmDevice : WarmDevice
         }
     static member create() = {   
-        
-        Pneumoblock = 
-            {   Comport = ComportConfig.Config.withDescr "пневмоблок"
-                Enabled = true 
-                Addr = 100uy }
-
-        Termochamber = 
-            {   Comport = ComportConfig.Config.withDescr "термокамера"
-                Enabled = true
-                SetpointTimeOut = TimeSpan.FromHours 4.
-                SetpointErrorLimit = 2m  }
                 
-        ComportProducts = ComportConfig.Config.withDescr "приборы" 
+        Comport = ComportConfig.Config.withDescr "стенд" 
         
-        WarmDevice = 
-            {   Comport = ComportConfig.Config.withDescr "подогрев_плат"
-                Addr = 0x63uy
-                Enabled = false
-                TempOn = -40m
-                TempOff = -30m }
+        
         
         }
     override __.ToString() = ""

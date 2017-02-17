@@ -3,7 +3,7 @@
 open Bin
 open Comport
 
-module private CRC16 = 
+module CRC16 = 
 
     let private auchCRCHi = 
         [   0x00uy; 0xC1uy; 0x81uy; 0x40uy; 0x01uy; 0xC0uy; 0x80uy; 0x41uy; 0x01uy; 0xC0uy; 0x80uy; 0x41uy; 0x00uy; 0xC1uy; 0x81uy;
@@ -146,47 +146,47 @@ module private Helpers1 =
                 Result = Result.map (fun _ -> "Ok") r }
         r
 
-    let write16 port what addy firstRegister dt =
-        let len = dt |> Array.length
-        let registersCount = len / 2
-        let dx = 
-            [|  (uint16 firstRegister ) >>> 8 |> byte
-                firstRegister |> byte
-                (uint16 registersCount ) >>> 8 |> byte
-                byte registersCount |]
-        let data =             
-            [|  yield! dx
-                yield byte len 
-                yield! dt |]
-        let request = 
-            {   cmd = 0x10uy
-                addy = addy
-                data  = data
-                what  = what }        
+let write16 port what addy firstRegister dt =
+    let len = dt |> Array.length
+    let registersCount = len / 2
+    let dx = 
+        [|  (uint16 firstRegister ) >>> 8 |> byte
+            firstRegister |> byte
+            (uint16 registersCount ) >>> 8 |> byte
+            byte registersCount |]
+    let data =             
+        [|  yield! dx
+            yield byte len 
+            yield! dt |]
+    let request = 
+        {   cmd = 0x10uy
+            addy = addy
+            data  = data
+            what  = what }        
         
-        if addy=0uy then sendBroadcast port request else
-            getResponse port request (fun x -> "")  <| function
-                |  [ x0; x1; x2; x3 ] as xs when xs = Array.toList dx.[0..3]  -> Ok ()
-                | _ -> Err "Неверный формат ответа %s"
+    if addy=0uy then sendBroadcast port request else
+        getResponse port request (fun x -> "")  <| function
+            |  [ x0; x1; x2; x3 ] as xs when xs = Array.toList dx.[0..3]  -> Ok ()
+            | _ -> Err "Неверный формат ответа %s"
         
 
-    let read3<'a> port what addy registerNumber registersCount formatResult parse : Result<'a, string>=
-        let data = 
-            [|  registerNumber >>> 8
-                registerNumber
-                registersCount >>> 8
-                registersCount |]
-            |> Array.map byte
+let read3<'a> port what addy registerNumber registersCount formatResult parse : Result<'a, string>=
+    let data = 
+        [|  registerNumber >>> 8
+            registerNumber
+            registersCount >>> 8
+            registersCount |]
+        |> Array.map byte
 
-        let request = 
-            {   cmd = 3uy
-                addy = addy
-                data  = data
-                what  = what }
+    let request = 
+        {   cmd = 3uy
+            addy = addy
+            data  = data
+            what  = what }
 
-        getResponse port request formatResult <| function    
-            | _::rxd when rxd.Length=int(registersCount)*2  -> parse rxd
-            | rx -> Err "Неверный формат ответа"
+    getResponse port request formatResult <| function    
+        | _::rxd when rxd.Length=int(registersCount)*2  -> parse rxd
+        | rx -> Err "Неверный формат ответа"
 
 [<CLIEvent>]
 let NotifyEvent = notify.Publish
@@ -211,6 +211,9 @@ let read3decimal port addy registerNumber what =
     read3 port what addy registerNumber 2 (sprintf "%M") <| function
         | Bin.AnalitBCD6 v -> Ok v
         | BytesToStr x -> Err <| sprintf "Ошибка преобразования BCD %s" x
+
+
+
 
 
 let private (|ConvList|) f = List.map f

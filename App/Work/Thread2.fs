@@ -162,26 +162,6 @@ let private perfomOperationEvent = new Event<_>()
 [<CLIEvent>]
 let PerfomOperationEvent = perfomOperationEvent.Publish
 
-let private stopHardwareWork() =
-    let cop s1 s2 f = 
-        Option.map
-            (   sprintf "Не удалось %s после выполнения сценария, %s" s1 ) 
-            (   Logging.warn "Выполняется %s после выполнения сценария" s2
-                f() |> Result.someErr ) 
-
-
-    [   if Hardware.Pneumo.isOpened() then 
-            yield cop "закрыть пневмоблок" "закрытие пневмоблока" <| fun () -> 
-                  Hardware.Pneumo.switch(0uy)
-        match Hardware.Termo.state.Value with
-        | Some (Ok Hardware.Termo.Stop) | None -> ()
-        | _ -> yield cop "остановить термокамеру" "остановка термокамеры" <| fun () -> 
-            Hardware.Termo.stop()  
-        match Hardware.WarmingBoard.state.Value with
-        | Some (Ok Hardware.WarmingBoard.Off) | None -> ()
-        | _ -> yield cop "прекратить подогрев плат" "прекращение подогрева плат" <| fun () -> 
-            Hardware.WarmingBoard.off() ]
-
 let run =
     
     let do'beg op = 
@@ -194,7 +174,7 @@ let run =
             perfomOperationEvent.Trigger(op,false)
 
 
-    fun (stopHardware)  (x : Operation)  -> 
+    fun  (x : Operation)  -> 
         
         if scenaryKeepRunning.Value || is'running.Value then
             failwith "already performing"
@@ -208,21 +188,17 @@ let run =
         dostart()
 
         async{
-            let r = Operation.Perform do'beg isKeepRunning x
+            let result = Operation.Perform do'beg isKeepRunning x
             let scenaryWasBreakedByUser = (scenaryKeepRunning.Value = false)
             scenaryKeepRunning.Value <- false
             
             let level,message = 
-                [   yield r 
-                    if stopHardware then 
-                        yield! stopHardwareWork()  ]
-                |> fun rs ->
-                    if rs |> List.exists Option.isSome then 
-                        Logging.Error, rs 
-                                       |> List.choose id 
-                                       |> Seq.toStr "\n" id 
-                                       |> sprintf "Выполнение завершилось с ошибкой. %s"
-                    elif Operation.WasErrorWhenRunning x then
+                match result with
+                | Some error ->
+                    Logging.Error, sprintf "Выполнение завершилось с ошибкой. %s" error
+                | _ ->
+
+                    if Operation.WasErrorWhenRunning x then
                         Logging.Warn, "при выполнении произошли ошибки"
                     elif scenaryWasBreakedByUser then
                         Logging.Warn, "выполнение было прервано"

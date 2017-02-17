@@ -9,6 +9,11 @@ open Bps21
 module private ViewModelProductHelpers =
     type P = Bps21.Product
     let appCfg = AppConfig.config
+
+    let formatPorogSt = function
+        | Some true -> "вкл." 
+        | Some false -> "выкл." 
+        | _ -> ""
     
 
 type Product(p : P, getProductType : unit -> ProductType) =
@@ -16,6 +21,9 @@ type Product(p : P, getProductType : unit -> ProductType) =
     let mutable p = p
 
     let mutable connection : Result<string,string> option = None
+    let mutable porog1 : bool option = None
+    let mutable porog2 : bool option = None
+    let mutable porog3 : bool option = None
     
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
@@ -49,6 +57,19 @@ type Product(p : P, getProductType : unit -> ProductType) =
             if v <> p.Serial then
                 x.Product <- { p with Serial = v }
 
+    member x.Porog1 = formatPorogSt porog1
+    member x.Porog2 = formatPorogSt porog2
+    member x.Porog3 = formatPorogSt porog2
+
+    member x.setPorog porog value =         
+        let f,s  = 
+            match porog with
+            | Bps21.Th1 -> (fun () -> porog1 <- value), "Porog1"
+            | Bps21.Th2 -> (fun () -> porog2 <- value), "Porog2"
+            | Bps21.Th3 -> (fun () -> porog3 <- value), "Porog3"
+        f()
+        x.RaisePropertyChanged s        
+
     member x.Product 
         with get () = p
         and set other =
@@ -61,14 +82,6 @@ type Product(p : P, getProductType : unit -> ProductType) =
     member x.What = P.what p
 
     
-    member x.GetModbusResponse request formatResult parseResponse = 
-        let r = 
-            Mdbs.getResponse
-                appCfg.Hardware.ComportProducts request formatResult parseResponse
-        x.Connection <- 
-            r 
-            |> Result.map(fun v -> sprintf "%s : %s" request.what (formatResult v))
-            |> Some 
-        r
+    
 
    

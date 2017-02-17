@@ -65,10 +65,7 @@ module private Helpers =
 type ProductType with 
     static member values = productTypes
 
-type ScalePt = 
-    | ScaleBeg
-    | ScaleEnd
-    static member values = [ ScaleBeg; ScaleEnd]
+
 
 type ProdPt =
     | Adjust
@@ -151,46 +148,6 @@ module Party =
             {   Products = products
                 ProdLog = Map.empty }
 
-// тип срабатывания порога
-type ThresholdTriggerType = 
-    | ThresholdTriggerInc
-    | ThresholdTriggerDec
-
-    static member values = [ ThresholdTriggerInc; ThresholdTriggerDec]
-    
-type ProductCmd =
-    | CmdAdjust of ScalePt
-    | CmdAddy
-    | CmdThreshold of ThresholdIndex * ThresholdTriggerType
-    | CmdSetTuneMode of ScalePt
-    | CmdTune of ScalePt * int
-
-    static member context = function        
-        | CmdAddy -> 5, "Установка сетевого адреса"
-        | CmdAdjust ScaleBeg -> 1, "Корректировка 4 мА"        
-        | CmdAdjust ScaleEnd -> 2, "Корректировка 20 мА"
-        | CmdSetTuneMode ScaleBeg -> 6, "Переключение режима подстройки 4 мА"
-        | CmdSetTuneMode ScaleEnd -> 8, "Переключение режима подстройки 20 мА"
-        | CmdTune (ScaleBeg,n) -> (n <<< 8) + 7, sprintf "Подстройка 4 мА на %d" (n+1)
-        | CmdTune (ScaleEnd,n) -> (n <<< 8) + 9, sprintf "Подстройка 20 мА на %d" (n+1)
-        | CmdThreshold (th,tt) -> 
-            let x,s1 = 
-                match tt with
-                | ThresholdTriggerInc -> 0, "повышение" 
-                | _ -> 1, "понижение"
-            let y = 
-                match th with
-                | Th1 -> 3
-                | Th2 -> 4
-                | Th3 -> 1
-            (x <<< 8) + y, sprintf "Установка порога %d на %s" (th.Order + 1) s1
-
-    static member what = ProductCmd.context >> snd
-    static member code = ProductCmd.context >> fst
-
-    member x.What = ProductCmd.what x
-    member x.Code = ProductCmd.code x
-
 type DelayType = 
     | DelayPowerOn 
     | DelaySetCurrent
@@ -209,3 +166,8 @@ type DelayType =
     member x.Prop = DelayType.getPropertyName x
 
     static member getPropertyName (x:DelayType) =  FSharpValue.unionCaseName x
+
+type DevVar =
+    | DevConc
+    | DevCurr
+    | DevTens

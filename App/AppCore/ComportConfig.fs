@@ -10,7 +10,6 @@ open System.IO.Ports
 
 open MyWinForms.Converters
 
-
 type ComPortNamesConverter() = 
     inherit  StringConverter()
     override this.GetStandardValuesSupported _ = true

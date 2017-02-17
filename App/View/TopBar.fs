@@ -44,9 +44,5 @@ let initialize =
 
     buttonSave.Click.Add <| fun _ -> 
         Bps21.AppContent.save()
-    
-    
         
-    
-    
     fun () -> ()

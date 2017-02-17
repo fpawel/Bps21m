@@ -108,7 +108,7 @@ type Party
     member __.NewValidAddr() = products |> Seq.map(fun x -> x.Addr)  |> Party.getNewValidAddy
     
     member x.AddNewProduct() = 
-        Product.createNew 0 (x.NewValidAddr())
+        Product.New 0 (x.NewValidAddr())
         |> createProductViewModel productType 
         |> products.Add 
         
