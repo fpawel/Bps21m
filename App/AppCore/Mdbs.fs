@@ -92,7 +92,7 @@ module private Helper =
         if request.addy <> 0uy && len=0 then Err "не отвечает"
         elif len<4 then Err ( sprintf "несоответствие дины ответа %d" len ) else
         let crc16 = CRC16.get respnseBytes
-        if crc16>0us then Err ( sprintf "ненулевая crc16 %x"  crc16 ) else
+        if crc16>0us then Err "ненулевая crc16" else
         let rxd = respnseBytes.[0..(len-3)] |> Array.toList     
         match rxd with
         | b::_ when b <> byte request.addy -> Err ( sprintf "несовпадение адреса %d" request.addy )

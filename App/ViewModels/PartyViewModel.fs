@@ -153,7 +153,7 @@ type Party
         and set value =
             if value <> partyData.ProdLog then
                 partyData <- { partyData with ProdLog =  value }
-                x.RaisePropertyChanged "Journal"
+                x.RaisePropertyChanged "ProdLog"
     
 [<AutoOpen>]
 module private RunInfoHelpers =

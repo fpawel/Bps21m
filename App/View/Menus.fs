@@ -33,7 +33,6 @@ module private Helpers =
 
     let simpleMenu = MyWinForms.Utils.buttonsMenu (new Font("Consolas", 12.f)) ( Some 300 ) 
 
-
     let popupNumberDialog<'a>     
         prompt title tryParse work 
         (btn : Button) 
@@ -56,105 +55,62 @@ module private Helpers =
         dialog.Show btn
 
 
-    let popupTermociclingDialog  
+    let popupTuneStep (current :Current)    
         (btn : Button) 
         (parentPopup : MyWinForms.Popup) =
-        let ph = new Panel(Width = 290)
-        let addctrl (c:Control) = 
-            c.Parent <- ph
-            c.Dock <- DockStyle.Top
-        let tb caption text =
-            addctrl (new Label(Text = caption, AutoSize = true) )
-            let tb = new TextBox(Text = text)           
-            addctrl tb
-            tb
-        let tbCount = tb "Количество термоциклов" "3"
-        let tbTempMin = tb "Нижняя температура, \"С" (string <| party.GetTermoTemperature TermoLow)
-        let tbTempMax = tb "Верхняя температура, \"С" (string <| party.GetTermoTemperature TermoHigh)
-        let tbTime = tb "Время прогрева, час:мин" "1:00"
-        
-        ph.stretchHeightToContent 50
-        ph.InvertChildrenOrder()
 
-        let tryGetData() = 
-            maybe {
-                let! count = 
-                    let b, count = Int32.TryParse tbCount.Text
-                    if not b || count < 1 || count > 10 then None else Some count
-                let! tempMin  = String.tryParseDecimal tbTempMin.Text
-                let! tempMax  = String.tryParseDecimal tbTempMax.Text
-                let! time  = 
-                    let b,v = TimeSpan.TryParse tbTime.Text
-                    if not b || v < TimeSpan.FromMinutes 1. || v > TimeSpan.FromHours 24. 
-                    then None 
-                    else Some v
-                return!
-                    if tempMax <= tempMin then None else
-                    Some( count, tempMin, tempMax, time )
-            }
-                 
+        let p = new Panel(Width = 290)
+        let r2 = new RadioButton(Parent = p, Dock = DockStyle.Top, Text = "Уменьшение")
+        let r1 = new RadioButton(Parent = p, Dock = DockStyle.Top, Text = "Увеличение", Checked = true )        
+        let tb1 = new TextBox(Parent = p, Dock = DockStyle.Top, Text = "1" )
+        let _ = new Label(Parent = p, Dock = DockStyle.Top, Text = "Шаг подстройки")       
+        
         let dialog,validate  = 
             popupDialog 
                 { Dlg.def() with 
-                    ButtonAcceptText = "Старт" 
-                    Title = "Термоциклирование"
+                    ButtonAcceptText = "Применить" 
+                    Title = "Подстройка тока " + current.What
                     Width = 300
-                    Content = ph }
-                tryGetData
-                ( fun x ->  
+                    Content = p }
+                ( fun () -> 
+                    let b,v = Int32.TryParse tb1.Text
+                    if b && v > 0 && v < 0xffff then
+                        Some (v, if r1.Checked then 1m else 0m)
+                    else 
+                        None )
+                ( fun (value, inc) ->  
                     parentPopup.Hide()
-                    PartyWorks.TermoChamber.termocicling x ) 
-        for tb in [tbCount; tbTempMin; tbTempMax; tbTime] do
-            tb.TextChanged.Add <| fun _ -> validate()                        
+                    Device.CmdTune(current,value).Send inc
+                    ) 
+        tb1.TextChanged.Add <| fun _ -> validate()
+        
         dialog.Show btn
 
-let modbusToolsPopup = 
-    let setAddr = 
-        popupNumberDialog 
-            "Ведите адрес MODBUS от 1 до 127" 
-            "Установка адреса MODBUS"
-            ( fun s ->
-                let b,v = Byte.TryParse s
-                if b  && v > 0uy && v<128uy then Some v else None)
-            (decimal >> setAddr)
+
+let deviceToolsPopup = 
+
     
-    [   yield "Установка адреса", setAddr
+    [   yield "Установка адресов", fun _ (parentPopup : MyWinForms.Popup) ->
+            parentPopup.Close()
+            party.SetAddrs()
+            
+        yield! 
+            [   Device.Cmd.MainPowerOn
+                Device.Cmd.Set4mA
+                Device.Cmd.Set20mA
+                Device.Cmd.Adjust4mA
+                Device.Cmd.Adjust20mA ]
+            |> List.map ( fun x ->
+                x.What, fun _ (parentPopup : MyWinForms.Popup) -> 
+                    parentPopup.Close()
+                    x.Send() )
         yield!
-            Command.values
-            |> List.filter( (<>) ResetAddy ) 
-            |> List.map( fun cmd -> 
-                (sprintf "MDBUS: %s" cmd.What), 
-                    popupNumberDialog 
-                        (sprintf "Введите значение аргумента команды %A" cmd.What)
-                        cmd.What
-                        String.tryParseDecimal
-                        (fun value -> sendCommand (cmd,value) ) ) ]
+            [I_4mA; I_20mA]
+            |> List.map (fun x -> 
+                let what = "Подстройка тока " + x.What
+                what,  popupTuneStep x ) ]
     |> simpleMenu
     
-let pneumoToolsPopup =         
-    [   yield! ScalePt.values |> List.map ( fun gas -> 
-            ScalePt.what gas, fun _ _  -> PartyWorks.Pneumoblock.switch gas )
-        yield "Выкл.", fun _ _ -> PartyWorks.Pneumoblock.close()  ]
-    |> simpleMenu
-
-let termoToolsPopup = 
-
-    let setpoint = 
-        popupNumberDialog 
-            "Введите значение уставки термокамеры"
-            "Задать уставку термокамеры"
-            String.tryParseDecimal
-            PartyWorks.TermoChamber.setSetpoint
-    let do' f _  (x : MyWinForms.Popup) = 
-        x.Close()
-        f()
-
-    [   yield "Термоциклирование", popupTermociclingDialog
-        yield "Старт", do' PartyWorks.TermoChamber.start
-        yield "Стоп", do' PartyWorks.TermoChamber.stop
-        yield "Уставка", setpoint  
-        yield "Температура", do' PartyWorks.TermoChamber.read ]
-    |> simpleMenu
 
 let private initButtons1 = 
     let buttons1placeholder = 
@@ -193,10 +149,10 @@ let private initButtons1 =
         let popup = 
             MyWinForms.Utils.popupConfig 
                 "Опрашиваемые параметры" 
-                (ViewModel.SelectPhysVars()) 
+                (SelectPhysVars()) 
                 PropertySort.Alphabetical
         popup.Closed.Add( fun _ ->
-           View.Products.updatePhysVarsGridColsVisibility()  )
+           View.Products.Columns.setVisibilityFromConfig() )
         popup.Show b )    
 
     fun () -> ()
@@ -215,7 +171,7 @@ let initialize =
     TopBar.thread1ButtonsBar.Controls.Add <| new Panel(Dock = DockStyle.Left, Width = 3)
     MainWindow.setTooltip buttonRun ("Выполнить " + buttonRun.Text)
     buttonRun.Click.Add <| fun _ ->  
-        Thread2.run true Thread2.scenary.Value
+        Thread2.run Thread2.scenary.Value
     Thread2.scenary.AddChanged <| fun (_,x) ->
         buttonRun.Text <- sprintf "%A" x.FullName
         MainWindow.setTooltip buttonRun ("Выполнить " + buttonRun.Text)
@@ -246,17 +202,8 @@ let initialize =
     imgBtn ( "loop","Опрос выбранных параметров приборов партии" ) <| fun _ ->
         runInterrogate()
     
-    imgBtn ("network", "Управление приборами по Modbus") <| fun x ->
-        modbusToolsPopup.Show x
-
-    imgBtn ("pneumo", "Управление пневмоблоком") <| fun x ->
-        pneumoToolsPopup.Show x   
-
-    imgBtn  ("termochamber", "Управление термокамерой") <| fun x ->
-        termoToolsPopup.Show x   
-
-    imgBtn  ("testconn", "Проверка связи с приборами и оборудованием") 
-        PartyWorks.testConnect
+    imgBtn ("network", "Управление приборами") <| fun x ->
+        deviceToolsPopup.Show x
 
     do
         let x = 
@@ -289,6 +236,6 @@ let initialize =
         popup.Show(buttonSettings)
 
         
-    Thread2.scenary.Set PartyWorks.bps21
+    Thread2.scenary.Set PartyWorks.main
 
     fun () -> ()

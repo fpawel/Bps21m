@@ -107,7 +107,6 @@
     <Compile Include="View\ViewScenary.fs" />
     <Compile Include="View\Thread2Views.fs" />
     <Compile Include="View\ReportView.fs" />
-    <Compile Include="View\ViewChart.fs" />
     <Compile Include="View\OpenPartyDialog.fs" />
     <Compile Include="View\SelectScenaryDialog.fs" />
     <Compile Include="View\PartyProductsDialogs.fs" />

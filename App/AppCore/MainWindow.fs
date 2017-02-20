@@ -84,22 +84,16 @@ module HardwareInfo =
 type Tabsheet = 
     | TabsheetParty
     | TabsheetScenary
-    | TabsheetVars
-    | TabsheetErrors
     member x.Title = Tabsheet.title x
     static member values = FSharpType.unionCasesList<Tabsheet>
     
     static member title = function
         | TabsheetParty ->   "Партия"
         | TabsheetScenary -> "Сценарий"
-        | TabsheetVars ->    "Данные"
-        | TabsheetErrors ->  "Погрешность"   
 
     static member descr = function
         | TabsheetParty ->   "Партия настраиваемых приборов"
         | TabsheetScenary -> "Сценарий настройки приборов партии"
-        | TabsheetVars ->    "Данные приборов партии"
-        | TabsheetErrors ->  "Измеренная погрешность концентрации приборов партии"   
 
 module private TabPagesHelp =
     let content = 

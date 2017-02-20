@@ -11,10 +11,11 @@ open PartyWorks
 [<AutoOpen>]
 module private Helpers =
     
-    type DelayContext with
+    type DelayType with
         static member getWorks ctx =
-            Works.all |> List.choose( function 
-                | Timed (op, ({DelayContext = EqualsTo ctx true } as d), _) -> Some (op,d)
+            PartyWorks.all 
+            |> List.choose( function 
+                | Timed (op, ({DelayType = EqualsTo ctx true } as d), _) -> Some (op,d)
                 | _ -> None ) 
 
 [<AbstractClass>]
@@ -22,14 +23,14 @@ type DelaysHelperViewModel1() =
     inherit ViewModelBase()    
 
     member x.GetDelay ctx =
-        DelayContext.getWorks ctx
+        DelayType.getWorks ctx
         |> List.maybeHead
         |> Option.map( fun (_,d) -> d.Time )
         |> Option.withDefault (TimeSpan.FromMinutes 3.)
         
     member x.SetDelay ctx value = 
         if x.GetDelay ctx <> value then            
-            DelayContext.getWorks ctx
+            DelayType.getWorks ctx
             |> List.iter( fun (i,_) -> i.GetRunInfo().SetDelayTime value )
             x.RaisePropertyChanged ctx.Prop
             

@@ -137,8 +137,8 @@ let initialize =
             t.Visible <- true
 
     Bps21.PartyWorks.ModalMessage.onClose.Value <- fun () ->            
-        form.PerformThreadSafeAction <| fun () -> 
-            panelModalMessage.Visible <- false
+        form.PerformThreadSafeAction 
+            ( fun () ->  panelModalMessage.Visible <- false )
 
     Bps21.PartyWorks.ModalMessage.getIsVivisble.Value <- fun () ->
         panelModalMessage.Visible

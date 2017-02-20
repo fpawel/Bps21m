@@ -24,6 +24,10 @@ type Product(p : P, getProductType : unit -> ProductType) =
     let mutable porog1 : bool option = None
     let mutable porog2 : bool option = None
     let mutable porog3 : bool option = None
+
+    let mutable conc : decimal option = None
+    let mutable curr : decimal option = None
+    let mutable tens : decimal option = None
     
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
@@ -57,18 +61,31 @@ type Product(p : P, getProductType : unit -> ProductType) =
             if v <> p.Serial then
                 x.Product <- { p with Serial = v }
 
-    member x.Porog1 = formatPorogSt porog1
-    member x.Porog2 = formatPorogSt porog2
-    member x.Porog3 = formatPorogSt porog2
+    member x.Porog1 = porog1
+    member x.Porog2 = porog2
+    member x.Porog3 = porog2
 
-    member x.setPorog porog value =         
-        let f,s  = 
-            match porog with
-            | Bps21.Th1 -> (fun () -> porog1 <- value), "Porog1"
-            | Bps21.Th2 -> (fun () -> porog2 <- value), "Porog2"
-            | Bps21.Th3 -> (fun () -> porog3 <- value), "Porog3"
-        f()
-        x.RaisePropertyChanged s        
+    member x.Conc = conc |> Option.map Decimal.toStr6 |> Option.withDefault ""
+    member x.Tens = tens |> Option.map Decimal.toStr6 |> Option.withDefault ""
+    member x.Curr = curr |> Option.map Decimal.toStr6 |> Option.withDefault ""
+
+    member x.SetIndication (ind:Device.Indication) =  
+        conc <- Some ind.Conc
+        porog1 <- Some ind.P1 
+        porog2 <- Some ind.P2
+        porog3 <- Some ind.P3        
+        x.RaisePropertyChanged "Conc"
+        x.RaisePropertyChanged "Porog1"
+        x.RaisePropertyChanged "Porog2"
+        x.RaisePropertyChanged "Porog3"
+
+    member x.SetCurr value = 
+        curr <- Some value
+        x.RaisePropertyChanged "Curr"
+
+    member x.SetTens value = 
+        tens <- Some value
+        x.RaisePropertyChanged "Tens"
 
     member x.Product 
         with get () = p

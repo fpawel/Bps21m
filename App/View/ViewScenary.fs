@@ -32,7 +32,7 @@ module private Popup =
                 Width = 300 }
             ( fun () -> Some () )
             ( fun () ->
-                party.Journal <- Map.empty 
+                party.ProdLog <- Map.empty 
                 updateGridViewBinding() )
 
     let delayTime() = 

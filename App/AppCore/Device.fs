@@ -1,15 +1,16 @@
 ﻿module Device
 
 open System
+open Bps21
 
-let comportConfig = AppConfig.config.Hardware.Comport
+let comportConfig = AppConfig.config.Comport
     
 [<AutoOpen>]
 module private Helpers =     
     
     let getResponse n cmd data what =
         Mdbs.getResponse
-            AppConfig.config.Hardware.Comport
+            AppConfig.config.Comport
             {   addy = 0x20uy + (byte n)
                 cmd = cmd
                 data = data
@@ -23,6 +24,10 @@ type PowerState =
         match x with
         | PowerOn -> "включить"
         | PowerOff -> "выключить"   
+
+    static member fromBool = function 
+        | true ->  PowerOn
+        | _ -> PowerOff
 
 type PowerType = 
     | PowerMain | PowerReserve
@@ -62,13 +67,7 @@ let readCurrent n =
 let readTension n = 
     Mdbs.read3decimal comportConfig (addrbyte n) 0 "считывание напряжения"
 
-type Current = 
-    | I_4mA
-    | I_20mA
-    member x.Current = 
-        match x with
-        | I_4mA -> 4m
-        | I_20mA -> 20m
+
 
 let setCurrent n current =
     let xs, whatCurr = 
@@ -112,7 +111,7 @@ type ThresholdTriggerType =
 
     static member values = [ ThresholdTriggerInc; ThresholdTriggerDec]
     
-open Bps21
+
 
 type CmdDevice =
     | CmdAdjust of Current
@@ -120,6 +119,8 @@ type CmdDevice =
     | CmdThreshold of ThresholdIndex * ThresholdTriggerType
     | CmdSetTuneMode of Current
     | CmdTune of Current * int
+
+    
 
     static member context = function  
         | CmdAddy -> 5, "Установка сетевого адреса"
@@ -192,6 +193,22 @@ type Cmd =
 
     static member SetAddr addr = 
         CmdDevice(CmdAddy, addr)
+
+    static member Values1 = 
+        [   for i in [I_4mA; I_20mA] do
+                yield CmdAdjust i
+            for i in [I_4mA; I_20mA] do
+                yield CmdSetTuneMode i
+            for i in [I_4mA; I_20mA] do
+                yield CmdSetTuneMode i
+            for th in [Th1; Th2; Th3] do
+                for tt in [ThresholdTriggerDec; ThresholdTriggerInc] do
+                    yield CmdThreshold (th,tt)
+        ]
+
+    
+    
+        
 
 let setAddr addr = 
     Cmd.Send 0uy ( CmdDevice (CmdAddy,addr) )

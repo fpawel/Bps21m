@@ -12,72 +12,25 @@ type DelaysHelperViewModel() =
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
 
-    [<DisplayName("Продувка ПГС1")>]    
-    [<Description("Продувка ПГС1, длительность час:мин:сек")>]
+    [<DisplayName("Включение питания")>]    
+    [<Description("Задержка после включения питания, час:мин:сек")>]
     [<TypeConverter(typeof<TimeSpanConverter>)>]
     member x.ScaleBeg 
-        with get() = x.GetDelay (BlowDelay ScaleBeg)
-        and set value = x.SetDelay (BlowDelay ScaleBeg) value  
+        with get() = x.GetDelay DelayPowerOn 
+        and set value = x.SetDelay DelayPowerOn value  
 
-    [<DisplayName("Продувка ПГС3")>]    
-    [<Description("Продувка ПГС3, длительность час:мин:сек")>]
+    [<DisplayName("Установка входного тока")>]    
+    [<Description("Задержка после установка входного тока, час:мин:сек")>]
     [<TypeConverter(typeof<TimeSpanConverter>)>]
     member x.ScaleMid 
-        with get() = x.GetDelay (BlowDelay ScaleMid)
-        and set value = x.SetDelay (BlowDelay ScaleMid) value  
+        with get() = x.GetDelay DelaySetCurrent
+        and set value = x.SetDelay DelaySetCurrent value  
 
-    [<DisplayName("Продувка ПГС4")>]    
-    [<Description("Продувка ПГС4, длительность час:мин:сек")>]
+    [<DisplayName("Корректировка показаний")>]    
+    [<Description("Задержка после корректировки показаний, час:мин:сек")>]
     [<TypeConverter(typeof<TimeSpanConverter>)>]
     member x.ScaleEnd 
-        with get() = x.GetDelay (BlowDelay ScaleEnd)
-        and set value = x.SetDelay (BlowDelay ScaleEnd) value  
+        with get() = x.GetDelay DelayAdjust
+        and set value = x.SetDelay DelayAdjust value  
 
-    [<DisplayName("Прогрев НКУ")>]    
-    [<Description("Прогрев НКУ, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.TermoNorm 
-        with get() = x.GetDelay (WarmDelay TermoNorm)
-        and set value = x.SetDelay (WarmDelay TermoNorm) value  
-
-    [<DisplayName("Прогрев T-")>]    
-    [<Description("Прогрев T-, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.TermoLow 
-        with get() = x.GetDelay (WarmDelay TermoLow)
-        and set value = x.SetDelay (WarmDelay TermoLow) value  
-
-    [<DisplayName("Прогрев T+")>]    
-    [<Description("Прогрев T+, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.TermoHigh 
-        with get() = x.GetDelay (WarmDelay TermoHigh)
-        and set value = x.SetDelay (WarmDelay TermoHigh) value  
-
-    [<DisplayName("Прогрев +90")>]    
-    [<Description("Прогрев +90, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.Termo90 
-        with get() = x.GetDelay (WarmDelay Termo90)
-        and set value = x.SetDelay (WarmDelay Termo90) value  
-
-    [<DisplayName("Выдержка, техпрогон")>]    
-    [<Description("Выдержка, техпрогон, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.TexprogonDelay 
-        with get() = x.GetDelay (TexprogonDelay)
-        and set value = x.SetDelay (TexprogonDelay) value  
-
-    [<DisplayName("Продувка ПГС1, калибровка")>]    
-    [<Description("Продувка ПГС1, калибровка, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.AdjustDelay_0 
-        with get() = x.GetDelay (AdjustDelay false)
-        and set value = x.SetDelay (AdjustDelay false) value  
-
-    [<DisplayName("Продувка ПГС4, калибровка")>]    
-    [<Description("Продувка ПГС4, калибровка, длительность час:мин:сек")>]
-    [<TypeConverter(typeof<TimeSpanConverter>)>]
-    member x.AdjustDelay_1 
-        with get() = x.GetDelay (AdjustDelay true)
-        and set value = x.SetDelay (AdjustDelay true) value  
+    

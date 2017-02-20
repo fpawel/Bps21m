@@ -182,6 +182,8 @@ let run =
         operation.Set (Some x)
         scenaryKeepRunning.Value <- true
         is'running.Set true   
+        for p in party.Products do
+            p.Connection <- None 
         Logging.info "Начало выполнения сценария %A" x.FullName     
         
         let dostart, dostop = MyWinForms.Utils.timer 10000 AppContent.save
@@ -212,7 +214,7 @@ let run =
             showScenaryReport.Value title level message 
             operation.Set None 
             is'running.Set false
-            for p in party.Products do
-                p.Connection <- None 
+//            for p in party.Products do
+//                p.Connection <- None 
             AppContent.save() }
         |> Async.Start

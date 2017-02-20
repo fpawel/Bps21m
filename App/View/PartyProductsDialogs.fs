@@ -51,19 +51,9 @@ type PartyInfo =
         [<TypeConverter (typeof<Bps21.ViewModel.ProductTypesConverter>) >]
         mutable ProductType : string
 
-        [<DisplayName("ПГС1")>]    
-        [<Description("Концентрация ПГС1, начало шкалы")>]
-        mutable Pgs1  : decimal
-        [<DisplayName("ПГС2")>]    
-        [<Description("Концентрация ПГС3, середина шкалы")>]
-        mutable Pgs2  : decimal
-        [<DisplayName("ПГС2")>]    
-        [<Description("Концентрация ПГС4, конец шкалы")>]
-        mutable Pgs3  : decimal 
-
         [<DisplayName("Количество приборов")>]    
         [<Description("Количество приборов в партии")>]
-        mutable Count  : byte  }
+        mutable Count  : int  }
 
 let addProducts (b:Button) = 
     let tb = new TextBox(Width = 200, Dock = DockStyle.Left, Text = "1")
@@ -111,8 +101,7 @@ let deleteProducts (b:Button) =
     let delete() =  
         getSelectedProducts()
         |> List.iter (fun p -> 
-            party.DeleteProduct p
-            Chart.removeProductSeries p.Product.Id |> ignore )
+            party.DeleteProduct p )
     let dialog, _  =            
         popupDialog
             { Dlg.def() with 
@@ -130,11 +119,8 @@ let deleteProducts (b:Button) =
 let createNewParty (b:Button) = 
     let d = 
         {   Name = "-"
-            ProductType = Bps21.A00.What
-            Pgs1 = 0m
-            Pgs2 = 49m
-            Pgs3 = 98m 
-            Count = 1uy}
+            ProductType = ProductType.values.Head.What
+            Count = 1}
     let g = new PropertyGrid(SelectedObject = d, 
                                 ToolbarVisible = false, Height = 250,
                                 PropertySort = PropertySort.Alphabetical)
@@ -151,11 +137,11 @@ let createNewParty (b:Button) =
                 let prodType = 
                     ProductType.values 
                     |> List.tryFind ( ProductType.what >> (=) d.ProductType)
-                    |> Option.withDefault A00
-                let b = Alchemy.createNewParty1 (d.Name, prodType, d.Pgs1, d.Pgs2, d.Pgs3, d.Count)
+                    |> Option.withDefault ProductType.values.Head
+               
+                let b = Party.New d.Name  prodType d.Count
                 party.Party <- b
                 AppContent.save()
-                TabPages.TabChart.update()
                 Scenary.updateGridViewBinding() )
     popup1.Closing.Add <| fun e ->
         if MyWinForms.Utils.isPropGridEditing g then

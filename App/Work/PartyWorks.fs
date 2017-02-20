@@ -3,6 +3,7 @@
 open System
 
 open Thread2
+open Device
 
 open ViewModel.Operations
 
@@ -34,21 +35,35 @@ type Bps21.ViewModel.Product with
             |> Result.map( fun () -> cmd.What )
             |> Some
 
+    member x.ReadIndication() = 
+        let r = Device.readIndication x.Addr
+        Result.iter x.SetIndication r
+        x.Connection <- 
+            r |> Result.map( fun v -> sprintf "C=%M" v.Conc )
+            |> Some
+        r
 
-    member x.ReadVar var = 
+    member x.ReadCurrent() = 
+        let r = Device.readCurrent x.Addr
+        Result.iter x.SetCurr r
+        x.Connection <- 
+            r |> Result.map( sprintf "I=%M" )
+            |> Some
+        r
+
+    member x.ReadTension() = 
+        let r = Device.readCurrent x.Addr
+        Result.iter x.SetTens r
+        x.Connection <- 
+            r |> Result.map( sprintf "U=%M" )
+            |> Some
+        r
+
+    member x.InrerrogateVar var = 
         match var with
-        | DevConc -> 
-            Device.readIndication x.Addr
-            |> Result.map( fun v -> sprintf "C=%M" v.Conc )
-        | DevCurr -> 
-            Device.readCurrent x.Addr
-            |> Result.map( sprintf "I=%M")
-        | DevTens -> 
-            Device.readTension x.Addr
-            |> Result.map( sprintf "U=%M")
-        |> fun v -> 
-            x.Connection <- Some v
-            v
+        | DevConc -> x.ReadIndication() |> Result.someErr
+        | DevCurr -> x.ReadCurrent() |> Result.someErr
+        | DevTens -> x.ReadTension() |> Result.someErr
             
     member x.Interrogate() = maybeErr {
         let xs = 
@@ -56,12 +71,17 @@ type Bps21.ViewModel.Product with
             if Set.isEmpty xs then Set.singleton Bps21.DevConc else xs
         for var in xs do
             if isKeepRunning() then
-                let! _ = x.ReadVar var 
-                () }
+                do! x.InrerrogateVar var  }
 
 type Bps21.ViewModel.Party with
     member x.DoForEachProduct f = 
-        let xs = x.Products |> Seq.filter(fun p -> p.IsChecked)
+        let xs = 
+            x.Products 
+            |> Seq.filter(fun p -> 
+                match p.IsChecked, p.Connection with
+                | false, _ 
+                | _, Some (Err _ ) -> false
+                | _ -> true )
         if Seq.isEmpty xs then
             Err "приборы не отмечены"
         else
@@ -76,13 +96,34 @@ type Bps21.ViewModel.Party with
             return "приборы не отмечены"
         else
             do! Comport.testPort Device.comportConfig
-            for p in xs do 
-                if isKeepRunning() && p.IsChecked then                         
-                    do! p.Interrogate() }
+            do! 
+                x.DoForEachProduct 
+                    (fun p -> ignore(p.Interrogate()))  }
 
     member x.Write(cmd) = maybeErr{
         do! Comport.testPort Device.comportConfig
         do! x.DoForEachProduct (fun p -> p.Write cmd   ) }
+
+    member x.Write1(f) = maybeErr{
+        do! Comport.testPort Device.comportConfig
+        do! x.DoForEachProduct (fun p -> p.Write (f p)   ) }
+
+    member x.DoSetAddrs() = maybeErr{
+        do! Comport.testPort Device.comportConfig
+        do! x.DoForEachProduct (fun product -> 
+            maybeErr{
+                do! x.Write1( fun p -> 
+                        (PowerMain, PowerState.fromBool <| obj.ReferenceEquals(p,product) )
+                        |> SetPower |> CmdStend  )
+                do! Device.setAddr (decimal product.Addr)
+                Mdbs.read3decimal 
+                        Device.comportConfig 
+                        product.Addr 0 
+                        (sprintf "проверка установки адреса %d" product.Addr)
+                |> ignore
+            } |> ignore         
+        )   
+    }
 
     
     
@@ -114,7 +155,7 @@ module Delay =
 module ModalMessage = 
     let onShow = Ref.Initializable<_>(sprintf "ModalMessage.onShow %s:%s" __LINE__ __SOURCE_FILE__ )
     let getIsVivisble = Ref.Initializable<_>(sprintf "ModalMessage.getIsVivisble %s:%s" __LINE__ __SOURCE_FILE__ )
-    let onClose = Ref.Initializable<_>(sprintf "ModalMessage.onClose %s:%s" __LINE__ __SOURCE_FILE__ )
+    let onClose = Ref.Initializable<(unit -> unit)>(sprintf "ModalMessage.onClose %s:%s" __LINE__ __SOURCE_FILE__ )
     
     let show (level:Logging.Level) (title:string) (text:string) = 
         onShow.Value title level text
@@ -178,8 +219,6 @@ module private Helpers1 =
 
         scenary
 
-
-
 let main = 
     "Корректировка 4-20 мА" <||> [           
         opWriteParty Device.Cmd.MainPowerOn
@@ -199,22 +238,13 @@ let main =
     ]
     |> withСonfig
 
-
-
-
-//    let blow = 
-//        all |> List.choose ( function 
-//            | (Op.Timed (_, ({DelayType = BlowDelay gas} as delay),_) as op) -> 
-//                Some (op,delay,gas)
-//            | _ -> None)
-
+let all = Op.MapReduce Some main 
 
 [<AutoOpen>]
 module private Helpers3 =
     let ( -->> ) s f =
         s <|> f
         |> Thread2.run 
-
     
 let runInterrogate() = "Опрос" -->> fun () -> maybeErr{ 
     do! Comport.testPort Device.comportConfig
@@ -222,12 +252,17 @@ let runInterrogate() = "Опрос" -->> fun () -> maybeErr{
         do! party.Interrogate() }
 
 
-let setAddr addr = sprintf "Установка адреса %A" addr -->> fun () -> maybeErr{ 
-    do! Device.setAddr addr
-    let! _ =  Mdbs.read3decimal Device.comportConfig (byte addr) 0 "проверка установки адреса"
-    () }
+type Device.Cmd with
+    member x.Send () = 
+        x.What -->> fun () -> 
+            party.Write x
 
-//let sendCommand (cmd,value as x) = 
-//    sprintf "%s <- %M" (Command.what cmd) value -->> fun () -> 
-//        party.WriteModbus x
 
+type Device.CmdDevice with
+    member x.Send (value) = 
+        Device.CmdDevice( x, value ).Send()
+
+
+type Bps21.ViewModel.Party with
+    member x.SetAddrs() = 
+        "Установка сетевых адресов" -->> x.DoSetAddrs

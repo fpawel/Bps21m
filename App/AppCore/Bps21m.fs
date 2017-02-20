@@ -65,11 +65,21 @@ module private Helpers =
 type ProductType with 
     static member values = productTypes
 
-
+type Current = 
+    | I_4mA
+    | I_20mA
+    member x.Current = 
+        match x with
+        | I_4mA -> 4m
+        | I_20mA -> 20m
+    member x.What = 
+        match x with
+        | I_4mA -> "4 мА"
+        | I_20mA -> "20 мА"
 
 type ProdPt =
     | Adjust
-    | Tune of ScalePt
+    | Tune of Current
     | TestLoad
     | TestFailure
     | TestThreshold of ThresholdIndex
@@ -171,3 +181,8 @@ type DevVar =
     | DevConc
     | DevCurr
     | DevTens
+    static member What (x:DevVar) =  
+        match x with
+        | DevConc -> "C"
+        | DevCurr -> "I"
+        | DevTens -> "U"  

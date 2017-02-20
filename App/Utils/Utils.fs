@@ -55,6 +55,10 @@ module Result =
         | Ok x -> Ok( f x )
         | Err e -> Err e  
 
+    let iter f = function
+        | Ok x -> f x 
+        | _ -> ()
+
     let mapErr f = function
         | Ok x -> Ok x
         | Err e -> Err ( f e  )

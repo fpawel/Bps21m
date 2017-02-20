@@ -15,6 +15,8 @@ module Helpers1 =
             yield! loopControls x chooser mapper }
 
 type Control with
+
+    
     static member performThreadSafeAction<'a> (ctrl:Control) (f:unit -> 'a) =
         if ctrl.InvokeRequired then 
             let mutable x : 'a option = None
@@ -23,7 +25,7 @@ type Control with
         else f()
 
     member x.PerformThreadSafeAction f = Control.performThreadSafeAction x f
-
+    
     member x.EnumControls(chooser,mapper) = loopControls x chooser mapper
     member x.enumControls chooser mapper = loopControls x chooser mapper
 
@@ -63,6 +65,10 @@ type DataGridViewColumnCollection with
         [   for y in x do 
                 if columns |> Seq.exists(fun c -> obj.ReferenceEquals(c,y) ) |> not then
                     yield y]
+        |> List.iter x.Remove
+
+    member x.RemoveAllColumns() = 
+        [ for y in x -> y] 
         |> List.iter x.Remove
 
 type DataGridView with

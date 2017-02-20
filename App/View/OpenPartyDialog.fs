@@ -48,7 +48,7 @@ module private Helpers =
                     xmonth.Nodes.Add xday |> ignore
                     xs |> Seq.iter( fun b -> 
                         let node = 
-                            TreeNode(Text = sprintf "%s, %A, %d" b.ProductType.What b.Name b.ProductInfo.Length )
+                            TreeNode(Text = sprintf "%s, %A, %d" b.ProductType.What b.Name b.Serials.Length )
                         
                         if b.Id = (fst party.Party).Id  then
                             selectedNode <- node
@@ -188,7 +188,6 @@ module private Helpers =
                 match AppContent.load b.Id with
                 | None -> 
                     Scenary.updateGridViewBinding()
-                    TabPages.TabChart.update()
                 | Some error -> 
                     MessageBox.Show(sprintf "Не удалось открыть данные партии %A, %A. %s" 
                                         b.Date b.ProductType error, 
