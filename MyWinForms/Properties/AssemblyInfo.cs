@@ -36,4 +36,4 @@ using System.Security.Permissions;
 [assembly: AssemblyVersion("1.5.0.*")]
 
 [assembly: CLSCompliant(true)]
-[assembly: UIPermission(SecurityAction.RequestMinimum, Window = UIPermissionWindow.SafeTopLevelWindows)]
+

@@ -79,11 +79,13 @@ let downLastM = function
 // down'nth' : int -> 'a TreeLoc -> 'a TreeLoc option
 let downAtM n loc =
     split ((loc.Tree).SubForest) n
-    |> Option.map (fun (t::ls, rs) ->
-         {  Tree = t
-            Lefts = ls
-            Rights = rs
-            Parents = downParents loc })
+    |> Option.map (function 
+        | (t::ls, rs) ->
+             {  Tree = t
+                Lefts = ls
+                Rights = rs
+                Parents = downParents loc }
+        | _ -> failwith "downAtM" )
 
 let (|Top|_|) = topM
 let (|Left|_|) = leftM
@@ -125,11 +127,14 @@ let fromTree t = { Tree = t
                    Parents = [] }
 
 // fromForest : 'a Forest -> 'a TreeLoc option
-let fromForest ( (t::ts) : 'a Forest) =
-    {   Tree = t
-        Lefts = []
-        Rights = ts
-        Parents = [] }
+let fromForest ( x : 'a Forest) =
+    match x with
+    | (t::ts) ->
+        {   Tree = t
+            Lefts = []
+            Rights = ts
+            Parents = [] }
+    | _ -> failwith "fromForest"
 
 // toTree : 'a TreeLoc -> 'a Tree
 let toTree loc = (root loc).Tree

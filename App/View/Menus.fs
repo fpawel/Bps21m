@@ -59,11 +59,15 @@ module private Helpers =
         (btn : Button) 
         (parentPopup : MyWinForms.Popup) =
 
-        let p = new Panel(Width = 290)
-        let r2 = new RadioButton(Parent = p, Dock = DockStyle.Top, Text = "Уменьшение")
-        let r1 = new RadioButton(Parent = p, Dock = DockStyle.Top, Text = "Увеличение", Checked = true )        
+        let p = new Panel(Width = 290, Height = 100)
+
+        let p1 = new Panel(Parent = p, Dock = DockStyle.Top, Height = 60)       
+        let r2 = new RadioButton(Parent = p1, Dock = DockStyle.Top, Text = "Уменьшение")       
+        let r1 = new RadioButton(Parent = p1, Dock = DockStyle.Top, Text = "Увеличение", Checked = true )
+        
         let tb1 = new TextBox(Parent = p, Dock = DockStyle.Top, Text = "1" )
         let _ = new Label(Parent = p, Dock = DockStyle.Top, Text = "Шаг подстройки")       
+
         
         let dialog,validate  = 
             popupDialog 
@@ -95,11 +99,7 @@ let deviceToolsPopup =
             party.SetAddrs()
             
         yield! 
-            [   Device.Cmd.MainPowerOn
-                Device.Cmd.Set4mA
-                Device.Cmd.Set20mA
-                Device.Cmd.Adjust4mA
-                Device.Cmd.Adjust20mA ]
+            Device.Cmd.CommandsStend1
             |> List.map ( fun x ->
                 x.What, fun _ (parentPopup : MyWinForms.Popup) -> 
                     parentPopup.Close()

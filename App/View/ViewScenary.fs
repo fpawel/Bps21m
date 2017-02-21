@@ -1,5 +1,7 @@
 ﻿module Bps21.View.Scenary
 
+#nowarn "40"
+
 open System
 open System.Windows.Forms
 open System.Drawing

@@ -27,44 +27,7 @@ let doWithProducts f =
         if isKeepRunning() && p.IsChecked then 
             f p ) 
 
-type Bps21.ViewModel.Product with
-    
-    member x.Write cmd =
-        x.Connection <- 
-            Device.Cmd.Send x.Addr cmd 
-            |> Result.map( fun () -> cmd.What )
-            |> Some
-
-    member x.ReadIndication() = 
-        let r = Device.readIndication x.Addr
-        Result.iter x.SetIndication r
-        x.Connection <- 
-            r |> Result.map( fun v -> sprintf "C=%M" v.Conc )
-            |> Some
-        r
-
-    member x.ReadCurrent() = 
-        let r = Device.readCurrent x.Addr
-        Result.iter x.SetCurr r
-        x.Connection <- 
-            r |> Result.map( sprintf "I=%M" )
-            |> Some
-        r
-
-    member x.ReadTension() = 
-        let r = Device.readCurrent x.Addr
-        Result.iter x.SetTens r
-        x.Connection <- 
-            r |> Result.map( sprintf "U=%M" )
-            |> Some
-        r
-
-    member x.InrerrogateVar var = 
-        match var with
-        | DevConc -> x.ReadIndication() |> Result.someErr
-        | DevCurr -> x.ReadCurrent() |> Result.someErr
-        | DevTens -> x.ReadTension() |> Result.someErr
-            
+type Bps21.ViewModel.Product with            
     member x.Interrogate() = maybeErr {
         let xs = 
             let xs = AppConfig.config.View.DevVars
@@ -75,17 +38,14 @@ type Bps21.ViewModel.Product with
 
 type Bps21.ViewModel.Party with
     member x.DoForEachProduct f = 
-        let xs = 
-            x.Products 
-            |> Seq.filter(fun p -> 
-                match p.IsChecked, p.Connection with
-                | false, _ 
-                | _, Some (Err _ ) -> false
-                | _ -> true )
-        if Seq.isEmpty xs then
-            Err "приборы не отмечены"
-        else
-            for p in xs do 
+        let xs1 = x.Products  |> Seq.filter(fun p ->  p.IsChecked )
+        if Seq.isEmpty xs1 then Err "приборы не отмечены" else
+        let xs2 =  xs1 |> Seq.filter(fun p -> 
+            match p.Connection with
+            | Some (Err _ ) -> false
+            | _ -> true )
+        if Seq.isEmpty xs2 then Err "нет связи с приборами" else
+            for p in xs2 do 
                 if isKeepRunning() && p.IsChecked then 
                     f p
             Ok ()
@@ -104,17 +64,17 @@ type Bps21.ViewModel.Party with
         do! Comport.testPort Device.comportConfig
         do! x.DoForEachProduct (fun p -> p.Write cmd   ) }
 
-    member x.Write1(f) = maybeErr{
-        do! Comport.testPort Device.comportConfig
-        do! x.DoForEachProduct (fun p -> p.Write (f p)   ) }
-
     member x.DoSetAddrs() = maybeErr{
         do! Comport.testPort Device.comportConfig
+        
         do! x.DoForEachProduct (fun product -> 
             maybeErr{
-                do! x.Write1( fun p -> 
-                        (PowerMain, PowerState.fromBool <| obj.ReferenceEquals(p,product) )
-                        |> SetPower |> CmdStend  )
+                do! x.DoForEachProduct (fun p -> 
+                    (PowerMain, PowerState.fromBool <| obj.ReferenceEquals(p,product) )
+                    |> SetPower 
+                    |> CmdStend
+                    |> p.Write )
+
                 do! Device.setAddr (decimal product.Addr)
                 Mdbs.read3decimal 
                         Device.comportConfig 
@@ -248,6 +208,9 @@ module private Helpers3 =
     
 let runInterrogate() = "Опрос" -->> fun () -> maybeErr{ 
     do! Comport.testPort Device.comportConfig
+    do! party.DoForEachProduct(fun p ->
+        ignore( p.ReadPorogs() )
+        )
     while Thread2.isKeepRunning() do
         do! party.Interrogate() }
 

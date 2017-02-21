@@ -72,11 +72,21 @@ type SelectPhysVars() =
     [<DisplayName("U")>]
     [<Description("Напряжение")>]
     [<TypeConverter (typeof<InterrogateConverter>) >]
-    member x.Var1 
+    member x.Tens 
         with get() =
             Set.contains DevTens cfg.DevVars 
         and set value =
             cfg.DevVars <- 
                 (if value then Set.add else Set.remove) DevTens cfg.DevVars
+
+    [<DisplayName("Статус")>]
+    [<Description("Статус прибора из регистра 35")>]
+    [<TypeConverter (typeof<InterrogateConverter>) >]
+    member x.Status
+        with get() =
+            Set.contains DevStatus cfg.DevVars 
+        and set value =
+            cfg.DevVars <- 
+                (if value then Set.add else Set.remove) DevStatus cfg.DevVars
 
     override x.ToString() = cfg.DevVars |> Seq.toStr ", " DevVar.What

@@ -1,5 +1,7 @@
 ﻿module MainWindow
 
+#nowarn "40"
+
 open System
 open System.Windows.Forms
 open System.Drawing
@@ -47,17 +49,22 @@ let rightTabContentPlaceholder,setActivePageTitle =
     x.SetInfoStyle()
     rightTabPagePlaceholder,(fun s -> x.Text <- s )
 
-let tabButtonsPlaceholder, leftBottomTabContentPlaceHolder = 
+let tabButtonsPlaceholder, leftBottomTabContentPlaceHolder, leftBottomPlaceHolder = 
     let _ = new Panel(Parent = mainLayer, Dock = DockStyle.Left, Width = 3)
     let x = new Panel(Parent = mainLayer, Dock = DockStyle.Left, Width = 135)
 
-    let left_bottom_TabContentPlaceHolder = new Panel(Parent = x, Dock = DockStyle.Fill)        
+    let leftBottomPlaceHolder = new Panel(Parent = x, Dock = DockStyle.Fill)     
 
-    let _ = new Panel(Parent = x, Dock = DockStyle.Top, Height = 30)
+    
+    
+    let _ = new Panel(Parent = x, Dock = DockStyle.Top, Height = 10)
+    let leftTabContenPlaceholder = new Panel(Parent = x, Dock = DockStyle.Top)  
+
+    let _ = new Panel(Parent = x, Dock = DockStyle.Top, Height = 10)
     let left_top_TabButtonsPlaceholder = new Panel(Parent = x, Dock = DockStyle.Top)
 
     let _ = new Panel(Parent = mainLayer, Dock = DockStyle.Left, Width = 3)
-    left_top_TabButtonsPlaceholder, left_bottom_TabContentPlaceHolder
+    left_top_TabButtonsPlaceholder, leftTabContenPlaceholder, leftBottomPlaceHolder
 
 let bottomLayer = 
     let _ = new Panel(Parent = mainLayer, Dock = DockStyle.Bottom, Height = 3)

@@ -51,7 +51,7 @@ let setPower powerType powerState n =
         | PowerOn -> 0x01uy
         | PowerOff -> 0x00uy
 
-    let what = sprintf "%s %s питание" powerState.What powerType.What
+    let what = sprintf "#%d: %s %s питание" n powerState.What powerType.What
 
     Mdbs.write16 
         comportConfig 
@@ -62,12 +62,10 @@ let setPower powerType powerState n =
 
 
 let readCurrent n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 0 "считывание тока"
+    Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: считывание тока" n)
 
 let readTension n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 0 "считывание напряжения"
-
-
+    Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: считывание напряжения" n) 
 
 let setCurrent n current =
     let xs, whatCurr = 
@@ -75,7 +73,7 @@ let setCurrent n current =
         | I_4mA ->  [| 0x03uy; 0x0Auy |], "4"
         | I_20mA -> [| 0x0Duy; 0x6Buy |], "20"
 
-    let what = sprintf "установка тока %s мА" whatCurr
+    let what = sprintf "#%d: установка тока %s мА" n whatCurr
     Mdbs.write16 comportConfig what (addrbyte n) 0x30 xs
 
 type Indication = 
@@ -103,6 +101,37 @@ let private read3decimalIgumenov port addy registerNumber what  =
 let readIndication n = 
     read3decimalIgumenov comportConfig n 0 "считать показания"  
 
+let private read3decimal n regn what = 
+    Mdbs.read3decimal comportConfig n regn what
+
+
+let readVPorogs n = result {
+    let! p1 = read3decimal n 2 "запрос установленного значения порога 1" 
+    let! p2 = read3decimal n 4 "запрос установленного значения порога 2" 
+    let! p3 = read3decimal n 6 "запрос установленного значения порога 3" 
+    return p1,p2,p3
+    } 
+
+
+type Status = 
+    {   Mode : bool
+        Failure  : bool
+        Porog3 : bool
+        Porog2 : bool
+        Porog1 : bool
+    }
+
+let readStatus n = 
+    Mdbs.read3bytes comportConfig n 35 1
+    |> Result.bind(function 
+        | [b;_] -> 
+            {   Mode    = b.Bit Byte.Bit4
+                Failure = b.Bit Byte.Bit3
+                Porog3  = b.Bit Byte.Bit2
+                Porog2  = b.Bit Byte.Bit1
+                Porog1  = b.Bit Byte.Bit0
+            } |> Ok
+        | BytesToStr s -> Err ( sprintf "неожиданный ответ %A" s) )
 
 // тип срабатывания порога
 type ThresholdTriggerType = 
@@ -179,6 +208,9 @@ type Cmd =
     static member MainPowerOn = 
         CmdStend(SetPower(PowerMain, PowerOn))
 
+    static member MainPowerOff = 
+        CmdStend(SetPower(PowerMain, PowerOff))
+
     static member Set4mA = 
         CmdStend(SetCurrent I_4mA)
 
@@ -194,7 +226,17 @@ type Cmd =
     static member SetAddr addr = 
         CmdDevice(CmdAddy, addr)
 
-    static member Values1 = 
+
+    static member CommandsStend1 = 
+        [   Cmd.MainPowerOn
+            Cmd.MainPowerOff
+            Cmd.Set4mA
+            Cmd.Set20mA
+            Cmd.Adjust4mA
+            Cmd.Adjust20mA 
+        ]
+
+    static member CommandsDevice1 = 
         [   for i in [I_4mA; I_20mA] do
                 yield CmdAdjust i
             for i in [I_4mA; I_20mA] do
