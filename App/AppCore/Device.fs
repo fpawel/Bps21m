@@ -65,7 +65,22 @@ let readCurrent n =
     Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: считывание тока" n)
 
 let readTension n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: считывание напряжения" n) 
+    Mdbs.read3decimal comportConfig (addrbyte n) 2 (sprintf "#%d: считывание напряжения" n) 
+
+type Status = 
+    {   Mode : bool
+        Failure  : bool
+        Porog3 : bool
+        Porog2 : bool
+        Porog1 : bool }
+
+let readReles n = 
+    Mdbs.read3bytes comportConfig (addrbyte n) 4 2 
+    |> Result.bind(function
+        | [b;_] ->
+            
+    )
+
 
 let setCurrent n current =
     let xs, whatCurr = 
@@ -76,29 +91,29 @@ let setCurrent n current =
     let what = sprintf "#%d: установка тока %s мА" n whatCurr
     Mdbs.write16 comportConfig what (addrbyte n) 0x30 xs
 
-type Indication = 
-    {   P1 : bool
-        P2 : bool
-        P3 : bool
-        Conc : decimal
+type Conc = 
+    {   Porog1 : bool
+        Porog2 : bool
+        Porog3 : bool
+        Value : decimal
     }
 
 let private read3decimalIgumenov port addy registerNumber what  =
     Mdbs.read3 port what addy registerNumber 2 
-        (fun (x:Indication) -> 
-            sprintf "%M П1:%b П2:%b П3:%b" x.Conc x.P1 x.P2 x.P3
+        (fun (x:Conc) -> 
+            sprintf "%M П1:%b П2:%b П3:%b" x.Value x.Porog1 x.Porog2 x.Porog3
             ) 
         (function
             | (Bin.AnalitBCD6 v) & (b :: _ )   -> 
                 let (~%%) bit = b.Bit bit
-                Ok{ Conc = v
-                    P1 = b.Bit Byte.Bit5
-                    P2 = b.Bit Byte.Bit4
-                    P3 = b.Bit Byte.Bit3 }                
+                Ok{ Value = v
+                    Porog1 = b.Bit Byte.Bit5
+                    Porog2 = b.Bit Byte.Bit4
+                    Porog3 = b.Bit Byte.Bit3 }                
             | BytesToStr x -> Err <| sprintf "Ошибка преобразования BCD %s" x )
 
 
-let readIndication n = 
+let readConc n = 
     read3decimalIgumenov comportConfig n 0 "считать показания"  
 
 let private read3decimal n regn what = 
@@ -113,13 +128,6 @@ let readVPorogs n = result {
     } 
 
 
-type Status = 
-    {   Mode : bool
-        Failure  : bool
-        Porog3 : bool
-        Porog2 : bool
-        Porog1 : bool
-    }
 
 let readStatus n = 
     Mdbs.read3bytes comportConfig n 35 1
@@ -137,10 +145,7 @@ let readStatus n =
 type ThresholdTriggerType = 
     | ThresholdTriggerInc
     | ThresholdTriggerDec
-
     static member values = [ ThresholdTriggerInc; ThresholdTriggerDec]
-    
-
 
 type CmdDevice =
     | CmdAdjust of Current
@@ -148,9 +153,6 @@ type CmdDevice =
     | CmdThreshold of ThresholdIndex * ThresholdTriggerType
     | CmdSetTuneMode of Current
     | CmdTune of Current * int
-
-    
-
     static member context = function  
         | CmdAddy -> 5, "Установка сетевого адреса"
         | CmdAdjust I_4mA -> 1, "Корректировка 4 мА"        
@@ -225,7 +227,6 @@ type Cmd =
 
     static member SetAddr addr = 
         CmdDevice(CmdAddy, addr)
-
 
     static member CommandsStend1 = 
         [   Cmd.MainPowerOn

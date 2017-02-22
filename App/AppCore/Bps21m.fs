@@ -177,14 +177,3 @@ type DelayType =
 
     static member getPropertyName (x:DelayType) =  FSharpValue.unionCaseName x
 
-type DevVar =
-    | DevConc
-    | DevCurr
-    | DevTens
-    | DevStatus
-    static member What (x:DevVar) =  
-        match x with
-        | DevConc -> "C"
-        | DevCurr -> "I"
-        | DevTens -> "U"  
-        | DevStatus -> "Ст."  

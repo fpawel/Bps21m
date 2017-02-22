@@ -14,6 +14,9 @@ module private Helpers =
     let appCfg = AppConfig.config
     let viewCfg = appCfg.View
 
+    let errPorog<'a> n v0 v35 : Result<'a,string> = 
+        Err (sprintf "ПОРОГ %d регистров 0 %b и 35 %b не совпадают" n v0 v35)
+
 
 let checkedProducts() = 
     party.Products
@@ -28,7 +31,35 @@ let doWithProducts f =
             f p ) 
 
 type Bps21.ViewModel.Product with            
-    member x.Interrogate() = maybeErr {
+    member x.Test1() = result {
+        let! conc = x.ReadConc()
+        let! status = x.ReadStatus()
+        if conc.Porog1 <> status.Porog1 then
+            return! errPorog 1 conc.Porog1 status.Porog1
+        elif conc.Porog2 <> status.Porog2 then
+            return! errPorog 2 conc.Porog2 status.Porog2
+        elif conc.Porog3 <> status.Porog3 then
+            return! errPorog 3 conc.Porog3 status.Porog3 
+        else
+            return conc,status
+        }
+
+    member x.Test2() = result {
+        let! conc,status = x.Test1()
+        return conc,status
+        }
+
+    member x.Test() = maybeErr {
+        let! conc = x.ReadConc()
+        let! status = x.ReadStatus()
+        if conc.Porog1 <> status.Porog1 then
+            return! errPorog 1 conc.Porog1 status.Porog1
+        elif conc.Porog2 <> status.Porog2 then
+            return! errPorog 2 conc.Porog2 status.Porog2
+        elif conc.Porog3 <> status.Porog3 then
+            return! errPorog 3 conc.Porog3 status.Porog3 else
+        
+
         let xs = 
             let xs = AppConfig.config.View.DevVars
             if Set.isEmpty xs then Set.singleton Bps21.DevConc else xs

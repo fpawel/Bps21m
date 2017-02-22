@@ -21,13 +21,11 @@ module View =
     type Config =  
         {   mutable PartyId : string
             mutable Grids : Map<string,Grid>   
-            mutable ScnDetailTextSplitterDistance : int  
-            mutable DevVars : Set<Bps21.DevVar> }
+            mutable ScnDetailTextSplitterDistance : int   }
         static member create() = 
             {   PartyId = ""
                 Grids = Map.empty
-                ScnDetailTextSplitterDistance = 0  
-                DevVars = Set.empty}
+                ScnDetailTextSplitterDistance = 0  }
 
 
 [<TypeConverter(typeof<ExpandableObjectConverter>)>]
