@@ -62,24 +62,29 @@ let setPower powerType powerState n =
 
 
 let readCurrent n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: считывание тока" n)
+    Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: ток" n)
 
 let readTension n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 2 (sprintf "#%d: считывание напряжения" n) 
+    Mdbs.read3decimal comportConfig (addrbyte n) 2 (sprintf "#%d: напряжение" n) 
 
-type Status = 
-    {   Mode : bool
+type ReleState = 
+    {   SpMode : bool
         Failure  : bool
         Porog3 : bool
         Porog2 : bool
-        Porog1 : bool }
+        Porog1 : bool 
+        Status : bool}
 
-let readReles n = 
-    Mdbs.read3bytes comportConfig (addrbyte n) 4 2 
-    |> Result.bind(function
-        | [b;_] ->
-            
-    )
+let readReleState n = 
+    Mdbs.read3decimal comportConfig (addrbyte n) 4 (sprintf "#%d: реле" n) 
+    |> Result.map(fun value ->
+        let b = byte value
+        {   SpMode  = not <| b.Bit Byte.Bit5
+            Failure = not <| b.Bit Byte.Bit4
+            Porog3  = not <| b.Bit Byte.Bit3
+            Porog2  = not <| b.Bit Byte.Bit2
+            Porog1  = not <| b.Bit Byte.Bit1
+            Status  = not <| b.Bit Byte.Bit0 }  )
 
 
 let setCurrent n current =
@@ -107,9 +112,9 @@ let private read3decimalIgumenov port addy registerNumber what  =
             | (Bin.AnalitBCD6 v) & (b :: _ )   -> 
                 let (~%%) bit = b.Bit bit
                 Ok{ Value = v
-                    Porog1 = b.Bit Byte.Bit5
+                    Porog1 = b.Bit Byte.Bit3
                     Porog2 = b.Bit Byte.Bit4
-                    Porog3 = b.Bit Byte.Bit3 }                
+                    Porog3 = b.Bit Byte.Bit5 }                
             | BytesToStr x -> Err <| sprintf "Ошибка преобразования BCD %s" x )
 
 
@@ -128,12 +133,18 @@ let readVPorogs n = result {
     } 
 
 
+type Status35 = 
+    {   SpMode : bool
+        Failure  : bool
+        Porog3 : bool
+        Porog2 : bool
+        Porog1 : bool }
 
-let readStatus n = 
+let readStatus35 n = 
     Mdbs.read3bytes comportConfig n 35 1
     |> Result.bind(function 
         | [b;_] -> 
-            {   Mode    = b.Bit Byte.Bit4
+            {   SpMode    = b.Bit Byte.Bit4
                 Failure = b.Bit Byte.Bit3
                 Porog3  = b.Bit Byte.Bit2
                 Porog2  = b.Bit Byte.Bit1

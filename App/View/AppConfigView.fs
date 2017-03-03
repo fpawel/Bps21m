@@ -21,7 +21,6 @@ type AppConfigView() =
             party.ProductType <- v
             Thread2.scenary.Set PartyWorks.main
             Scenary.updateGridViewBinding()
-            Products.Columns.setVisibilityFromConfig()
             
     [<DisplayName("Наименование")>]    
     [<Description("Наименование партии")>]
@@ -40,53 +39,3 @@ type AppConfigView() =
     override __.ToString() = ""
 
 
-type InterrogateConverter() =
-    inherit MyWinForms.Converters.BooleanTypeConverter("Опрашивать", "Не опрашивать")
-
-[<TypeConverter(typeof<ExpandableObjectConverter>)>]
-type SelectPhysVars() = 
-    let cfg = AppConfig.config.View 
-
-    [<DisplayName("Конц.")>]
-    [<Description("Концентрация")>]
-    [<TypeConverter (typeof<InterrogateConverter>) >]
-    member x.Conc 
-        with get() =
-            Set.contains DevConc cfg.DevVars 
-        and set value =
-            cfg.DevVars <- 
-                (if value then Set.add else Set.remove) DevConc cfg.DevVars            
-            
-
-    [<DisplayName("I")>]
-    [<Description("Ток")>]
-    [<TypeConverter (typeof<InterrogateConverter>) >]
-    member x.Curr 
-        with get() =
-            Set.contains DevCurr cfg.DevVars 
-        and set value =
-            cfg.DevVars <- 
-                (if value then Set.add else Set.remove) DevCurr cfg.DevVars            
-            
-
-    [<DisplayName("U")>]
-    [<Description("Напряжение")>]
-    [<TypeConverter (typeof<InterrogateConverter>) >]
-    member x.Tens 
-        with get() =
-            Set.contains DevTens cfg.DevVars 
-        and set value =
-            cfg.DevVars <- 
-                (if value then Set.add else Set.remove) DevTens cfg.DevVars
-
-    [<DisplayName("Статус")>]
-    [<Description("Статус прибора из регистра 35")>]
-    [<TypeConverter (typeof<InterrogateConverter>) >]
-    member x.Status
-        with get() =
-            Set.contains DevStatus cfg.DevVars 
-        and set value =
-            cfg.DevVars <- 
-                (if value then Set.add else Set.remove) DevStatus cfg.DevVars
-
-    override x.ToString() = cfg.DevVars |> Seq.toStr ", " DevVar.What

@@ -145,16 +145,6 @@ let private initButtons1 =
         [btnOpenParty; btnNewParty; btnAddProd; btnDelProd ]
         |> Seq.iter(fun b -> b.Enabled <- not isRunning )
 
-    let _ = imgbtn 89 3 "todo" "Выбрать опрашиваемые параметры" ( fun b ->
-        let popup = 
-            MyWinForms.Utils.popupConfig 
-                "Опрашиваемые параметры" 
-                (SelectPhysVars()) 
-                PropertySort.Alphabetical
-        popup.Closed.Add( fun _ ->
-           View.Products.Columns.setVisibilityFromConfig() )
-        popup.Show b )    
-
     fun () -> ()
     
 open Bps21.View.TopBar

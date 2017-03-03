@@ -167,7 +167,7 @@ let write16 port what addy firstRegister dt =
     if addy=0uy then sendBroadcast port request else
         getResponse port request (fun x -> "")  <| function
             |  [ x0; x1; x2; x3 ] as xs when xs = Array.toList dx.[0..3]  -> Ok ()
-            | _ -> Err "Неверный формат ответа %s"
+            | BytesToStr s -> Err (sprintf "Неверный формат ответа %A" s)
         
 
 let read3<'a> port what addy registerNumber registersCount formatResult parse : Result<'a, string>=
@@ -186,7 +186,7 @@ let read3<'a> port what addy registerNumber registersCount formatResult parse : 
 
     getResponse port request formatResult <| function    
         | _::rxd when rxd.Length=int(registersCount)*2  -> parse rxd
-        | rx -> Err "Неверный формат ответа"
+        | BytesToStr s -> Err (sprintf "Неверный формат ответа %A" s)
 
 [<CLIEvent>]
 let NotifyEvent = notify.Publish
@@ -199,8 +199,13 @@ let write port addy cmd what value =
     |> write16 port what addy 32
 
 let read3bytes port addy registerNumber registersCount  =
+    let s = 
+        match registersCount with
+        | 1 -> sprintf "регистра %d" registerNumber
+        | 2 -> sprintf "регистров %d,%d" registerNumber (registerNumber+1)
+        | n -> sprintf "регистров %d...%d" registerNumber (registerNumber + registersCount - 1)
     read3 port 
-        ( sprintf "запрос %d-%d регистров" registerNumber (registerNumber + registersCount - 1) ) 
+        ( sprintf "запрос %s" s ) 
         addy
         registerNumber 
         registersCount 

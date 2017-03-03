@@ -29,14 +29,15 @@ module Columns =
     let private col1 header dataprop width = 
         %% new TextColumn(DataPropertyName = dataprop, HeaderText = header, Width = width, ReadOnly = true)    
 
-    let status = 
+    let rele = 
         let col1 header prop =  col1 header prop 50
 
-        [   col1 "РЕЖИМ" "StatusMode"
-            col1 "ОТКАЗ" "StatusFailure"
-            col1 "П1" "StatusPorog1"
-            col1 "П2" "StatusPorog2"
-            col1 "П3" "StatusPorog3"
+        [   col1 "РЕЖИМ" "Mode"
+            col1 "ОТКАЗ" "Failure"
+            col1 "П1" "Porog1"
+            col1 "П2" "Porog2"
+            col1 "П3" "Porog3"
+            col1 "СТАТУС" "Status"
         ] 
 
     let conc = col1 "C" "Conc" 80
@@ -50,20 +51,11 @@ module Columns =
             conc
             curr
             tens
-        ] @  status
-
-    let setVisibilityFromConfig() =
-        let isvar var = Set.contains var AppConfig.config.View.DevVars
-        conc.Visible <- isvar DevConc 
-        curr.Visible <- isvar DevCurr
-        tens.Visible <- isvar DevTens 
-        for col in status do
-            col.Visible <- isvar DevStatus
+        ] @  rele
 
     let init = 
         fun () ->
             gridProducts.Columns.AddColumns columns
-            setVisibilityFromConfig()
 
 
 let private (===) x y =  obj.ReferenceEquals(x,y)
@@ -95,7 +87,7 @@ let initialize =
             e.Value <- text            
             cell.Style.ForeColor <- fore
             cell.Style.BackColor <- back
-        elif %% Columns.status then   
+        elif %% Columns.rele then   
             let color, text = 
                 match e.Value :?> bool option with
                 | Some true -> Color.Red, "включен"

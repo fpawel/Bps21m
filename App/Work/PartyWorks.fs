@@ -13,59 +13,60 @@ module private Helpers =
     let party = AppContent.party
     let appCfg = AppConfig.config
     let viewCfg = appCfg.View
+    
+    let checkedProducts() = 
+        party.Products
+        |> Seq.filter( fun p -> p.IsChecked )
+    let hasNotCheckedProduct() = checkedProducts() |> Seq.isEmpty 
+    let hasCheckedProduct() = not <| hasNotCheckedProduct()
+    
+    let doWithProducts f = 
+        checkedProducts() |> Seq.iter ( fun p ->       
+            if isKeepRunning() && p.IsChecked then 
+                f p ) 
 
-    let errPorog<'a> n v0 v35 : Result<'a,string> = 
-        Err (sprintf "ПОРОГ %d регистров 0 %b и 35 %b не совпадают" n v0 v35)
 
-
-let checkedProducts() = 
-    party.Products
-    |> Seq.filter( fun p -> p.IsChecked )
-let hasNotCheckedProduct() = checkedProducts() |> Seq.isEmpty 
-let hasCheckedProduct() = not <| hasNotCheckedProduct()
-
-
-let doWithProducts f = 
-    checkedProducts() |> Seq.iter ( fun p ->       
-        if isKeepRunning() && p.IsChecked then 
-            f p ) 
-
-type Bps21.ViewModel.Product with            
-    member x.Test1() = result {
+type Bps21.ViewModel.Product with
+    member x.TestRead1 () = result {
         let! conc = x.ReadConc()
-        let! status = x.ReadStatus()
-        if conc.Porog1 <> status.Porog1 then
-            return! errPorog 1 conc.Porog1 status.Porog1
-        elif conc.Porog2 <> status.Porog2 then
-            return! errPorog 2 conc.Porog2 status.Porog2
-        elif conc.Porog3 <> status.Porog3 then
-            return! errPorog 3 conc.Porog3 status.Porog3 
-        else
-            return conc,status
-        }
-
-    member x.Test2() = result {
-        let! conc,status = x.Test1()
-        return conc,status
-        }
-
-    member x.Test() = maybeErr {
-        let! conc = x.ReadConc()
-        let! status = x.ReadStatus()
-        if conc.Porog1 <> status.Porog1 then
-            return! errPorog 1 conc.Porog1 status.Porog1
-        elif conc.Porog2 <> status.Porog2 then
-            return! errPorog 2 conc.Porog2 status.Porog2
-        elif conc.Porog3 <> status.Porog3 then
-            return! errPorog 3 conc.Porog3 status.Porog3 else
+        let! rele = x.ReadReleState()
+        let porogsConc = conc.Porog1, conc.Porog2, conc.Porog3
+        (*
+        let! st35 = x.ReadStatus35()
+        let porogsSt35 = st35.Porog1, st35.Porog2, st35.Porog3
+        if porogsConc <> porogsSt35 then
+            return!
+                sprintf "несоответсвие состояний порогов регистра 0 %A и регистра 35 %A" porogsConc porogsSt35 
+                |> Err else
         
+        let rele_ : Device.Status35  =
+            {   Failure = rele.Failure 
+                SpMode = rele.SpMode
+                Porog1 = rele.Porog1
+                Porog2 = rele.Porog2
+                Porog3 = rele.Porog3}
+        if rele_ <> st35 then
+            return!
+                sprintf "несоответсвие состояний контактов реле, полученных от стенда %A, и считанных из регистра 35 %A" 
+                    rele_ st35 
+                |> Err else
+        *)
+        return conc.Value, rele }
 
-        let xs = 
-            let xs = AppConfig.config.View.DevVars
-            if Set.isEmpty xs then Set.singleton Bps21.DevConc else xs
-        for var in xs do
-            if isKeepRunning() then
-                do! x.InrerrogateVar var  }
+    member x.TestRead () = 
+        let r =
+            maybeErr {
+                let! _ = x.TestRead1()
+                let! _ = x.ReadCurrent()
+                let! _ = x.ReadTension()
+                return! None }
+        match r with
+        | Some err ->
+            Logging.error "прибор №%d: %s" x.Addr err
+            x.Connection <- Some (Err err)
+        | _ -> ()
+
+    
 
 type Bps21.ViewModel.Party with
     member x.DoForEachProduct f = 
@@ -87,9 +88,10 @@ type Bps21.ViewModel.Party with
             return "приборы не отмечены"
         else
             do! Comport.testPort Device.comportConfig
-            do! 
-                x.DoForEachProduct 
-                    (fun p -> ignore(p.Interrogate()))  }
+            do! x.DoForEachProduct (fun p -> 
+                p.TestRead() )
+
+                }
 
     member x.Write(cmd) = maybeErr{
         do! Comport.testPort Device.comportConfig
@@ -211,21 +213,23 @@ module private Helpers1 =
         scenary
 
 let main = 
-    "Корректировка 4-20 мА" <||> [           
-        opWriteParty Device.Cmd.MainPowerOn
-        opDelay2 "Пауза 2 мин." _2minute DelayPowerOn
+    "Настройка БПС21М3" <||> [
+        "Корректировка 4-20 мА" <||> [           
+            opWriteParty Device.Cmd.MainPowerOn
+            opDelay2 "Пауза 2 мин." _2minute DelayPowerOn
 
-        opWriteParty Device.Cmd.Set4mA
-        opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
+            opWriteParty Device.Cmd.Set4mA
+            opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
         
-        opWriteParty Device.Cmd.Adjust4mA
-        opDelay2 "Пауза 10 с" _10sec DelayAdjust
+            opWriteParty Device.Cmd.Adjust4mA
+            opDelay2 "Пауза 10 с" _10sec DelayAdjust
 
-        opWriteParty Device.Cmd.Set20mA
-        opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
+            opWriteParty Device.Cmd.Set20mA
+            opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
 
-        opWriteParty Device.Cmd.Adjust20mA
-        opDelay2 "Пауза 10 с" _10sec DelayAdjust
+            opWriteParty Device.Cmd.Adjust20mA
+            opDelay2 "Пауза 10 с" _10sec DelayAdjust
+        ]
     ]
     |> withСonfig
 
@@ -239,9 +243,10 @@ module private Helpers3 =
     
 let runInterrogate() = "Опрос" -->> fun () -> maybeErr{ 
     do! Comport.testPort Device.comportConfig
-    do! party.DoForEachProduct(fun p ->
-        ignore( p.ReadPorogs() )
-        )
+    do! party.Write Device.Cmd.MainPowerOn
+//    do! party.DoForEachProduct(fun p ->
+//        ignore( p.ReadPorogs() )
+//        )
     while Thread2.isKeepRunning() do
         do! party.Interrogate() }
 

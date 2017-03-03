@@ -61,3 +61,5 @@ setCurrent 1 I_4mA
 Mdbs.write comportConfig 0uy 5 "установка адреса" 1m
 Mdbs.read3decimal comportConfig 1uy 0 "считать конц."     
 
+
+System.Convert.ToString(238,2)

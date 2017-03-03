@@ -27,7 +27,7 @@ type Product(p : P, getProductType : unit -> ProductType) =
     let mutable curr : decimal option = None
     let mutable tens : decimal option = None
     
-    let mutable status : Device.Status option = None
+    let mutable rele : Device.ReleState option = None
 
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
@@ -76,11 +76,18 @@ type Product(p : P, getProductType : unit -> ProductType) =
             |> Some
         r
 
-    member x.ReadStatus() = 
-        let r = Device.readStatus x.Addr
+    member x.ReadStatus35() = 
+        let r = Device.readStatus35 x.Addr
+        x.Connection <- 
+            r |> Result.map( sprintf "Статус %A" )
+            |> Some
+        r
+
+    member x.ReadReleState() = 
+        let r = Device.readReleState x.Addr
         r |> Result.iter (fun value -> 
-            status <- Some value        
-            ["Mode"; "Failure"; "Porog1"; "Porog2"; "Porog3"]
+            rele <- Some value        
+            ["Mode"; "Failure"; "Porog1"; "Porog2"; "Porog3"; "Status"]
             |> List.iter x.RaisePropertyChanged )
         x.Connection <- 
             r |> Result.map( sprintf "Статус %A" )
@@ -119,11 +126,12 @@ type Product(p : P, getProductType : unit -> ProductType) =
     member x.Tens = fmtDecOpt tens
     member x.Curr = fmtDecOpt curr
 
-    member x.Mode     = status |> Option.map( fun {Mode = a} -> a ) 
-    member x.Failure  = status |> Option.map( fun {Failure = a} -> a ) 
-    member x.Porog1   = status |> Option.map( fun {Porog1 = a} -> a )
-    member x.Porog2   = status |> Option.map( fun {Porog2 = a} -> a )
-    member x.Porog3   = status |> Option.map( fun {Porog3 = a} -> a )
+    member x.Mode     = rele |> Option.map( fun {SpMode = a} -> a ) 
+    member x.Failure  = rele |> Option.map( fun {Failure = a} -> a ) 
+    member x.Porog1   = rele |> Option.map( fun {Porog1 = a} -> a )
+    member x.Porog2   = rele |> Option.map( fun {Porog2 = a} -> a )
+    member x.Porog3   = rele |> Option.map( fun {Porog3 = a} -> a )
+    member x.Status   = rele |> Option.map( fun {Status = a} -> a )
     
 
     member x.Product 
