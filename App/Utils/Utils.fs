@@ -211,6 +211,16 @@ module Byte =
 
         member x.Number  =
             Bit.GetNumber x 
+
+        member bit.Get (x:byte) =    
+            let n = Bit.GetNumber bit
+            let mask = 1uy <<< n
+            let masked = x &&& mask
+            masked <> 0uy
+
+    let (|Bits|) x = 
+        let (~%%) (n:Bit) = n.Get(x)
+        (%% Bit0, %% Bit1, %% Bit2, %% Bit3, %% Bit4, %% Bit5, %% Bit6, %% Bit7)
             
 
 type System.Byte with

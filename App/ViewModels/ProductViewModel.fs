@@ -23,76 +23,95 @@ type Product(p : P, getProductType : unit -> ProductType) =
     let mutable p = p
 
     let mutable connection : Result<string,string> option = None
-    let mutable conc : decimal option = None
-    let mutable curr : decimal option = None
-    let mutable tens : decimal option = None
+    let mutable productCurrent : decimal option = None
+    let mutable stendCurrent : decimal option = None
+    let mutable stendTension : decimal option = None
     
-    let mutable rele : Device.ReleState option = None
+    let mutable productStatus : Hard.Product.Status option = None
+    let mutable rele : Hard.Stend.Rele option = None
+    
 
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
 
-    member x.Write cmd =
+    member x.WriteProduct (cmd:Hard.Product.Cmd) value =
         x.Connection <- 
-            Device.Cmd.Send x.Addr cmd 
+            cmd.Perform x.Addr value
             |> Result.map( fun () -> cmd.What )
             |> Some
 
-    member x.ReadConc() = 
-        let r = Device.readConc x.Addr
-        r |> Result.iter (fun v -> 
-            conc <- Some v.Value
-            x.RaisePropertyChanged "Conc" )
+    member x.WriteStend (cmd:Hard.Stend.Cmd) =
         x.Connection <- 
-            r |> Result.map( fun v -> sprintf "C=%M" v.Value )
+            cmd.Perform x.Addr 
+            |> Result.map( fun () -> cmd.What )
+            |> Some
+
+    member x.ReadProductCurrent() = 
+        let r = Hard.Product.readCurrent x.Addr
+        r |> Result.iter (fun v -> 
+            productCurrent <- Some v 
+            x.RaisePropertyChanged "ProductCurrent" )
+        x.Connection <- 
+            r |> Result.map( sprintf "I:%M" )
             |> Some
         r
 
-    member x.ReadCurrent() = 
-        let r = Device.readCurrent x.Addr
+    member x.ReadStendCurrent() = 
+        let r = Hard.Stend.readCurrent x.Addr
         r |> Result.iter (fun value -> 
-            curr <- Some value
-            x.RaisePropertyChanged "Curr" )
+            stendCurrent <- Some value
+            x.RaisePropertyChanged "StendCurrent" )
         x.Connection <- 
-            r |> Result.map( sprintf "I=%M" )
+            r |> Result.map( sprintf "I:%M:стенд" )
+            |> Some
+        r
+
+    member x.ReadStendTension() = 
+        let r = Hard.Stend.readTension x.Addr
+        r |> Result.iter (fun value -> 
+            stendTension <- Some value
+            x.RaisePropertyChanged "StendTension" )
+        x.Connection <- 
+            r |> Result.map( sprintf "U:%M:стенд" )
             |> Some
         r
 
     member x.ReadTension() = 
-        let r = Device.readCurrent x.Addr
+        let r = Hard.Stend.readTension x.Addr
         r |> Result.iter (fun value -> 
-            curr <- Some value
-            x.RaisePropertyChanged "Tens" )
+            stendTension <- Some value
+            x.RaisePropertyChanged "StendTension" )
         x.Connection <- 
-            r |> Result.map( sprintf "U=%M" )
+            r |> Result.map( sprintf "U:%M" )
             |> Some
         r
 
-    member x.ReadPorogs() = 
-        let r = Device.readVPorogs x.Addr
+    member x.ReadProductStatus() = 
+        let r = Hard.Product.readStatus x.Addr
         x.Connection <- 
-            r 
-            |> Result.map( sprintf "Уст.пороги %A"  )
+            r |> Result.map( fun (st, p1, p2, p3,_) -> 
+                productStatus <- Some st
+                x.RaisePropertyChanged "ProductStatus"
+                sprintf "%s, %b, %b, %b" st.What p1 p2 p3)
             |> Some
         r
 
-    member x.ReadStatus35() = 
-        let r = Device.readStatus35 x.Addr
+    member x.ReadStendRele() = 
+        let r = Hard.Stend.readRele x.Addr
         x.Connection <- 
-            r |> Result.map( sprintf "Статус %A" )
+            r |> Result.map( fun a -> 
+                rele <- Some a
+                [   "Status"
+                    "Failure"
+                    "Porog1"
+                    "Porog2"
+                    "Porog3"
+                    "SpMode"
+                ] |> List.iter x.RaisePropertyChanged 
+                sprintf "%A" a)
             |> Some
         r
-
-    member x.ReadReleState() = 
-        let r = Device.readReleState x.Addr
-        r |> Result.iter (fun value -> 
-            rele <- Some value        
-            ["Mode"; "Failure"; "Porog1"; "Porog2"; "Porog3"; "Status"]
-            |> List.iter x.RaisePropertyChanged )
-        x.Connection <- 
-            r |> Result.map( sprintf "Статус %A" )
-            |> Some
-        r
+            
 
     member x.Connection
         with get () = connection
@@ -122,18 +141,22 @@ type Product(p : P, getProductType : unit -> ProductType) =
             if v <> p.Serial then
                 x.Product <- { p with Serial = v }
 
-    member x.Conc = fmtDecOpt conc
-    member x.Tens = fmtDecOpt tens
-    member x.Curr = fmtDecOpt curr
+    member x.ProductCurrent = fmtDecOpt productCurrent
+    member x.StendTension = fmtDecOpt stendTension
+    member x.StendCurrent = fmtDecOpt stendCurrent
 
-    member x.Mode     = rele |> Option.map( fun {SpMode = a} -> a ) 
-    member x.Failure  = rele |> Option.map( fun {Failure = a} -> a ) 
-    member x.Porog1   = rele |> Option.map( fun {Porog1 = a} -> a )
-    member x.Porog2   = rele |> Option.map( fun {Porog2 = a} -> a )
-    member x.Porog3   = rele |> Option.map( fun {Porog3 = a} -> a )
-    member x.Status   = rele |> Option.map( fun {Status = a} -> a )
+    member x.ProductStatus = 
+        productStatus 
+        |> Option.map( fun a -> a.What ) 
+        |> Option.withDefault ""
+    member x.Porog1 = rele |> Option.map( fun a -> a.Porog1 )  
+    member x.Porog2 = rele |> Option.map( fun a -> a.Porog2 )
+    member x.Porog3 = rele |> Option.map( fun a -> a.Porog3 ) 
+    member x.Status = rele |> Option.map( fun a -> a.Status ) 
+    member x.SpMode = rele |> Option.map( fun a -> a.SpMode ) 
+    member x.Failure = rele |> Option.map( fun a -> a.Failure ) 
+
     
-
     member x.Product 
         with get () = p
         and set other =
@@ -144,5 +167,3 @@ type Product(p : P, getProductType : unit -> ProductType) =
             x.RaisePropertyChanged "Serial"
 
     member x.What = P.what p
-
-    

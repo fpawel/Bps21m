@@ -2,31 +2,7 @@
 
 open System
 
-type ThresholdIndex = 
-    | Th1
-    | Th2
-    | Th3
 
-    static member values = [ Th1; Th2; Th3]
-    
-    member x.Order = ThresholdIndex.GetOrder x
-
-    static member GetOrder = function
-        | Th1 -> 0
-        | Th2 -> 1
-        | Th3 -> 2
-
-type Rele =
-    | ReleThreshold of ThresholdIndex
-    | ReleFailure
-    | ReleMode
-    | ReleStatus
-
-type ReleState = Rele * bool
-
-type TestProduct = 
-    | TestTens of decimal * decimal  
-    | TestReles of ReleState list
 
 type ProductType =
     {   Number : int
@@ -82,7 +58,6 @@ type ProdPt =
     | Tune of Current
     | TestLoad
     | TestFailure
-    | TestThreshold of ThresholdIndex
     | TestReservedPower
 
 type Id = string

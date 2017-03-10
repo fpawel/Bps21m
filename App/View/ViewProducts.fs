@@ -32,25 +32,27 @@ module Columns =
     let rele = 
         let col1 header prop =  col1 header prop 50
 
-        [   col1 "РЕЖИМ" "Mode"
+        [   col1 "СТ." "Status"
+            col1 "СП.РЕЖИМ" "SpMode"
             col1 "ОТКАЗ" "Failure"
             col1 "П1" "Porog1"
             col1 "П2" "Porog2"
-            col1 "П3" "Porog3"
-            col1 "СТАТУС" "Status"
+            col1 "П3" "Porog3"            
         ] 
 
-    let conc = col1 "C" "Conc" 80
-    let curr = col1 "I" "Curr" 80
-    let tens = col1 "U" "Tens" 80
+    let currProd = col1 "Iп" "ProductCurrent" 80
+    let blockStatus = col1 "СТАТУС" "ProductStatus" 80
+    let currStend = col1 "Iс" "StendCurrent" 80
+    let tensStend = col1 "U" "StendTension" 80
     let conn = col1 "Связь" "Connection" 80
 
     let columns = 
         [   isChecked; addr; serial
             conn
-            conc
-            curr
-            tens
+            blockStatus
+            currProd
+            currStend
+            tensStend
         ] @  rele
 
     let init = 
@@ -68,10 +70,8 @@ let initialize =
     gridProducts.DataSource <- party.Products
     gridProducts.Columns.CollectionChanged.Add(fun _ ->
         gridProducts.Columns.SetDisplayIndexByOrder()  )
-
     let getProductOfRow rowIndex =
         gridProducts.Rows.[rowIndex].DataBoundItem :?> P
-
     gridProducts.CellFormatting.Add <| fun e ->
         let product = getProductOfRow e.RowIndex
         let column = gridProducts.Columns.[e.ColumnIndex]        
@@ -99,6 +99,5 @@ let initialize =
                 | Some false -> Color.SkyBlue
                 | _ -> Color.White
             cell.ToolTipText <- text
-            e.Value <- ""    
-        
+            e.Value <- ""
     fun () -> ()

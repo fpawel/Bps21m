@@ -14,6 +14,7 @@ open Thread2
 open Bps21
 open Bps21.PartyWorks
 open Bps21.View
+open Bps21.Hard 
 
 [<AutoOpen>]
 module private Helpers =
@@ -84,26 +85,25 @@ module private Helpers =
                         None )
                 ( fun (value, inc) ->  
                     parentPopup.Hide()
-                    Device.CmdTune(current,value).Send inc
+                    party.RunWriteProduct ( Hard.Product.Cmd.Tune(current,value), inc )
                     ) 
         tb1.TextChanged.Add <| fun _ -> validate()
         
         dialog.Show btn
 
 
-let deviceToolsPopup = 
 
-    
+let deviceToolsPopup = 
     [   yield "Установка адресов", fun _ (parentPopup : MyWinForms.Popup) ->
             parentPopup.Close()
-            party.SetAddrs()
+            party.RunSetAddrs()       
             
-        yield! 
-            Device.Cmd.CommandsStend1
-            |> List.map ( fun x ->
-                x.What, fun _ (parentPopup : MyWinForms.Popup) -> 
+        for pt in [Stend.PowerMain; Stend.PowerReserve] do     
+            for ps in [Stend.PowerOn; Stend.PowerOff] do 
+                let cmd = Stend.SetPower(pt,ps)
+                yield cmd.What, fun _ (parentPopup : MyWinForms.Popup) ->
                     parentPopup.Close()
-                    x.Send() )
+                    party.RunWriteStend(cmd)
         yield!
             [I_4mA; I_20mA]
             |> List.map (fun x -> 

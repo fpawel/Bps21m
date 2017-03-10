@@ -3,13 +3,12 @@
 open System
 
 open Thread2
-open Device
 
 open ViewModel.Operations
 
 [<AutoOpen>]
 module private Helpers = 
-    type P = Product
+    type P = Bps21.ViewModel.Product
     let party = AppContent.party
     let appCfg = AppConfig.config
     let viewCfg = appCfg.View
@@ -26,47 +25,17 @@ module private Helpers =
                 f p ) 
 
 
+
 type Bps21.ViewModel.Product with
-    member x.TestRead1 () = result {
-        let! conc = x.ReadConc()
-        let! rele = x.ReadReleState()
-        let porogsConc = conc.Porog1, conc.Porog2, conc.Porog3
-        (*
-        let! st35 = x.ReadStatus35()
-        let porogsSt35 = st35.Porog1, st35.Porog2, st35.Porog3
-        if porogsConc <> porogsSt35 then
-            return!
-                sprintf "несоответсвие состояний порогов регистра 0 %A и регистра 35 %A" porogsConc porogsSt35 
-                |> Err else
-        
-        let rele_ : Device.Status35  =
-            {   Failure = rele.Failure 
-                SpMode = rele.SpMode
-                Porog1 = rele.Porog1
-                Porog2 = rele.Porog2
-                Porog3 = rele.Porog3}
-        if rele_ <> st35 then
-            return!
-                sprintf "несоответсвие состояний контактов реле, полученных от стенда %A, и считанных из регистра 35 %A" 
-                    rele_ st35 
-                |> Err else
-        *)
-        return conc.Value, rele }
-
-    member x.TestRead () = 
-        let r =
-            maybeErr {
-                let! _ = x.TestRead1()
-                let! _ = x.ReadCurrent()
-                let! _ = x.ReadTension()
-                return! None }
-        match r with
-        | Some err ->
-            Logging.error "прибор №%d: %s" x.Addr err
-            x.Connection <- Some (Err err)
-        | _ -> ()
-
-    
+    static member TestRead (x:Bps21.ViewModel.Product) = maybeErr {
+        let! _ = x.ReadProductCurrent()
+        let! _ = x.ReadStendCurrent()
+        let! _ = x.ReadStendTension()
+        let! {Porog1 = p1; Porog2 = p2; Porog3 = p3} as a = x.ReadStendRele()
+        let! _,p1_,p2_,p3_,_  as b = x.ReadProductStatus()
+        if (p1,p2,p3) <> (p1_,p2_,p3_) then
+            Logging.error "несоответствие данных порогов, прибор: %A, стенд: %A" a b       
+        return! None }
 
 type Bps21.ViewModel.Party with
     member x.DoForEachProduct f = 
@@ -87,33 +56,30 @@ type Bps21.ViewModel.Party with
         if Seq.isEmpty xs then
             return "приборы не отмечены"
         else
-            do! Comport.testPort Device.comportConfig
-            do! x.DoForEachProduct (fun p -> 
-                p.TestRead() )
+            do! Comport.testPort Hard.Stend.comportConfig
+            do! x.DoForEachProduct ( P.TestRead >> ignore ) 
+        }
 
-                }
+    member x.WriteStend(cmd) = 
+        x.DoForEachProduct (fun p -> p.WriteStend cmd  ) 
+            |> Result.someErr
 
-    member x.Write(cmd) = maybeErr{
-        do! Comport.testPort Device.comportConfig
-        do! x.DoForEachProduct (fun p -> p.Write cmd   ) }
+    member x.WriteProduct cmd value = 
+        x.DoForEachProduct (fun p -> p.WriteProduct cmd value ) 
+            |> Result.someErr
 
-    member x.DoSetAddrs() = maybeErr{
-        do! Comport.testPort Device.comportConfig
-        
+    member x.DoSetAddrs() = maybeErr{        
         do! x.DoForEachProduct (fun product -> 
             maybeErr{
                 do! x.DoForEachProduct (fun p -> 
-                    (PowerMain, PowerState.fromBool <| obj.ReferenceEquals(p,product) )
-                    |> SetPower 
-                    |> CmdStend
-                    |> p.Write )
-
-                do! Device.setAddr (decimal product.Addr)
-                Mdbs.read3decimal 
-                        Device.comportConfig 
-                        product.Addr 0 
-                        (sprintf "проверка установки адреса %d" product.Addr)
-                |> ignore
+                    let st = 
+                        obj.ReferenceEquals(p,product)
+                        |> Hard.Stend.PowerState.fromBool 
+                    let cmd = Hard.Stend.SetPower(Hard.Stend.PowerMain, st)
+                    p.WriteStend cmd )
+                do! Hard.Product.SetAddr.Perform 0uy (decimal product.Addr)
+                let! _ = product.ReadProductCurrent()
+                return ()
             } |> ignore         
         )   
     }
@@ -168,8 +134,12 @@ module private Helpers1 =
     type OpConfig = Config
     type Op = Operation
 
-    let opWriteParty cmd = 
-        let f() = party.Write cmd
+    let writeProducts (cmd,value) = 
+        let f() = party.WriteProduct cmd value
+        cmd.What <|> f
+
+    let writeStend cmd = 
+        let f() = party.WriteStend cmd 
         cmd.What <|> f
 
     let opDelay1 what time = 
@@ -214,24 +184,23 @@ module private Helpers1 =
 
 let main = 
     "Настройка БПС21М3" <||> [
-        "Корректировка 4-20 мА" <||> [           
-            opWriteParty Device.Cmd.MainPowerOn
+        "Корректировка 4-20 мА" <||> [
+            writeStend Hard.Stend.Cmd.MainPowerOn
             opDelay2 "Пауза 2 мин." _2minute DelayPowerOn
 
-            opWriteParty Device.Cmd.Set4mA
+            writeStend Hard.Stend.Cmd.Set4mA
             opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
         
-            opWriteParty Device.Cmd.Adjust4mA
+            writeProducts Hard.Product.Cmd.Adjust4mA
             opDelay2 "Пауза 10 с" _10sec DelayAdjust
 
-            opWriteParty Device.Cmd.Set20mA
+            writeStend Hard.Stend.Cmd.Set20mA
+            opDelay2 "Пауза 10 с" _10sec DelayAdjust
+
+            writeProducts Hard.Product.Cmd.Adjust20mA
             opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
-
-            opWriteParty Device.Cmd.Adjust20mA
-            opDelay2 "Пауза 10 с" _10sec DelayAdjust
         ]
-    ]
-    |> withСonfig
+    ] |> withСonfig
 
 let all = Op.MapReduce Some main 
 
@@ -242,26 +211,21 @@ module private Helpers3 =
         |> Thread2.run 
     
 let runInterrogate() = "Опрос" -->> fun () -> maybeErr{ 
-    do! Comport.testPort Device.comportConfig
-    do! party.Write Device.Cmd.MainPowerOn
-//    do! party.DoForEachProduct(fun p ->
-//        ignore( p.ReadPorogs() )
-//        )
+    do! Comport.testPort Hard.Stend.comportConfig
+    do! party.WriteStend Hard.Stend.Cmd.MainPowerOn
     while Thread2.isKeepRunning() do
-        do! party.Interrogate() }
-
-
-type Device.Cmd with
-    member x.Send () = 
-        x.What -->> fun () -> 
-            party.Write x
-
-
-type Device.CmdDevice with
-    member x.Send (value) = 
-        Device.CmdDevice( x, value ).Send()
+        do! party.Interrogate() 
+   }
 
 
 type Bps21.ViewModel.Party with
-    member x.SetAddrs() = 
+    member party.RunWriteStend (cmd:Hard.Stend.Cmd) = 
+        cmd.What -->> fun () -> 
+            party.WriteStend cmd
+
+    member x.RunWriteProduct (cmd:Hard.Product.Cmd, value) = 
+        sprintf "%s, %M" cmd.What value -->> fun () -> 
+            party.WriteProduct cmd value
+
+    member x.RunSetAddrs() = 
         "Установка сетевых адресов" -->> x.DoSetAddrs
