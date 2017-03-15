@@ -121,7 +121,7 @@ let initialize =
 
     Delay.initialize()
 
-    Thread2.add'keep'running <| function
+    Thread2.addScenaryKeepRunningChangedHandler <| function
         | _, false ->                 
             form.PerformThreadSafeAction <| fun () ->
                 panelModalMessage.Visible <- false
@@ -143,7 +143,7 @@ let initialize =
     Bps21.PartyWorks.ModalMessage.getIsVivisble.Value <- fun () ->
         panelModalMessage.Visible
 
-    Thread2.show'performing'message.Value <- fun level text -> 
+    Thread2.showPerformingMessage.Value <- fun level text -> 
         if TabPages.getSelected() <> TabsheetScenary then
             form.PerformThreadSafeAction <| fun () ->
                 let x = MainWindow.labelPerformingInfo
@@ -161,6 +161,10 @@ let initialize =
             panelSenaryResult.Title <- title
             panelSenaryResult.Text <- text
             panelSenaryResult.TextForeColor <- Some <| Logging.foreColor level
+
+    Thread2.closeScenaryReport.Value <- fun () ->        
+        form.PerformThreadSafeAction <| fun () -> 
+            panelSenaryResult.Visible <- false
     
 
     Thread2.IsRunningChangedEvent.addHandler <| fun (_,v) ->
@@ -180,7 +184,7 @@ let initialize =
         panelClosing.DoUpdate <| fun () ->
             panelClosing.Title <- Thread2.scenary.Value.Name
         
-    Thread2.add'keep'running <| fun (_,keep'running) ->
+    Thread2.addScenaryKeepRunningChangedHandler <| fun (_,keep'running) ->
         form.PerformThreadSafeAction <| fun () ->
             btnStop.Visible <- keep'running 
             if not keep'running then

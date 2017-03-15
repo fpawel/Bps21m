@@ -31,16 +31,18 @@
 #load "Utils/Bin.fs" 
 #load "Utils/Hex.fs" 
 #load "AppCore/Mdbs.fs" 
-#load "AppCore/Device.fs" 
+#load "AppCore/BPS21m.fs"
+#load "AppCore/Hard/Product.fs" 
+#load "AppCore/Hard/Stend.fs" 
 
 Comport.Ports.getPortsNames
 
-open Device  
+open Bps21.Hard  
 open System
 
-comportConfig.PortName <- "COM8"
-comportConfig.CanLog <- true
-comportConfig.BaudRate <- 9600
+Stend.comportConfig.PortName <- "COM8"
+Stend.comportConfig.CanLog <- true
+Stend.comportConfig.BaudRate <- 9600
 
 let crc16 (s:string) =
     s.Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
@@ -53,7 +55,8 @@ let crc16 (s:string) =
 crc16 "21 04 31 00 01 57 66"
 crc16 "21 03 20 10 10 61 9F 51"
 
-readCurrent 1
+while true do
+    printfn "%A" <| Stend.readCurrent 1uy
 
 setPower PowerMain PowerOn 1
 setCurrent 1 I_4mA

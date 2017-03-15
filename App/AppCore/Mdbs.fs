@@ -130,23 +130,24 @@ let getResponse port request formatResult parseResponse  =
         
     result
 
-[<AutoOpen>]
-module private Helpers1 = 
+   
+let sendBroadcast port request = 
+    let r = 
+        match Comport.write port (requestBytes request) with
+        | Some e -> Err e
+        | _ -> Ok ()
+    tell
+        {   Request = request
+            Port = port
+            Response = None
+            Result = Result.map (fun _ -> "Ok") r }
+    r
 
-    
-    let sendBroadcast port request = 
-        let r = 
-            match Comport.write port (requestBytes request) with
-            | Some e -> Err e
-            | _ -> Ok ()
-        tell
-            {   Request = request
-                Port = port
-                Response = None
-                Result = Result.map (fun _ -> "Ok") r }
-        r
+type AnswerDemand = 
+    | AnswerRequired
+    | AnswerNotRequired
 
-let write16 port what addy firstRegister dt =
+let write16 port what addy answerDemand firstRegister dt  =
     let len = dt |> Array.length
     let registersCount = len / 2
     let dx = 
@@ -164,7 +165,7 @@ let write16 port what addy firstRegister dt =
             data  = data
             what  = what }        
         
-    if addy=0uy then sendBroadcast port request else
+    if addy=0uy || answerDemand = AnswerNotRequired then sendBroadcast port request else
         getResponse port request (fun x -> "")  <| function
             |  [ x0; x1; x2; x3 ] as xs when xs = Array.toList dx.[0..3]  -> Ok ()
             | BytesToStr s -> Err (sprintf "Неверный формат ответа %A" s)
@@ -191,12 +192,12 @@ let read3<'a> port what addy registerNumber registersCount formatResult parse : 
 [<CLIEvent>]
 let NotifyEvent = notify.Publish
 
-let write port addy cmd what value =
+let write port addy cmd what answerDemand value  =
     let what = sprintf "%s <-- %s" what ( System.Decimal.toStr6 value)
     [|  yield byte (cmd >>> 8)
         yield byte cmd
         yield! Bin.decimalToAnalitBCD6 value |]
-    |> write16 port what addy 32
+    |> write16 port what addy answerDemand 32 
 
 let read3bytes port addy registerNumber registersCount  =
     let s = 

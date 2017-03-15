@@ -23,10 +23,13 @@ module private Helpers =
 
 
 let showSelectScenaryDialog : Button -> unit = 
+    let panTv = new Panel(Height = 400)
+    let buttonRun = new Button( Parent = panTv, Height = 25, Text = "Выполнить", 
+                                TextAlign = ContentAlignment.MiddleLeft,
+                                FlatStyle = FlatStyle.Flat, Dock = DockStyle.Bottom )
     let tv = 
         new MyWinForms.Components.TriStateCheckTreeView
-                (Font = new Font( "Segue UI", 12.f ),
-                    Height = 600)
+                (Parent = panTv, Font = new Font( "Segue UI", 12.f ), Dock = DockStyle.Fill)
     let mp = Dictionary<TreeNode,Operation>()
     let ndmp = Dictionary<string,TreeNode>()
     let rec populate (parnd:TreeNode) (x:Operation) = 
@@ -48,16 +51,25 @@ let showSelectScenaryDialog : Button -> unit =
         mp.[node] |> Operation.Choose1 ( fun y -> 
             ndmp.[y.FullName].StateImageIndex > 0 ) 
     
-    let dialog,validate  = 
+    let dialog,validate1  = 
         popupDialog
             { Dlg.def() with 
                 Dlg.ButtonAcceptText = "Выбрать" 
                 Width = 450
-                Dlg.Content = tv 
+                Dlg.Content = panTv 
                 Dlg.Title = "Выбрать сценарий"}
             getOperation
             ( fun operation ->
                 Thread2.scenary.Set operation )
+
+    let validate() = 
+        match getOperation() with
+        | Some op ->
+            buttonRun.Visible <- true
+            buttonRun.Text <- sprintf "Выполнить %A" op.Name
+        | _ ->  
+            buttonRun.Visible <- false
+        validate1()
 
     tv.StateImageIndexChanged.Add <| fun _ ->
         validate()
@@ -71,4 +83,11 @@ let showSelectScenaryDialog : Button -> unit =
     tv.Select()
     tv.Focus() |> ignore
     validate()
+
+    buttonRun.Click.Add <| fun _ ->
+        getOperation()
+        |> Option.iter (fun op -> 
+            dialog.Close()
+            Thread2.run  op 
+        )
     dialog.Show

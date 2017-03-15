@@ -11,8 +11,6 @@ open MyWinForms.Utils
 
 [<AutoOpen>]
 module private Helpers =
-
-    //type C = DataGridViewColumn
     type CheckBoxColumn = MyWinForms.GridViewCheckBoxColumn
     type TextColumn = DataGridViewTextBoxColumn
     let (~%%) x = x :> DataGridViewColumn
@@ -76,30 +74,21 @@ let labelPerformingInfo =
     new Label(Parent = bottomLayer, Dock = DockStyle.Fill, Text = "",
                 TextAlign = ContentAlignment.MiddleLeft )
 
-module HardwareInfo = 
-    let private (~%%) x = MyWinForms.Components.LeftInfoBlock(bottomLayer, x)
-    let oven = %% "Подогрев плат"
-    let termo = %% "Термокамера"
-    let peumo = %% "ПГС"
-
-    let initialize = 
-        [   oven;  termo; peumo 
-        ] |> List.iter (fun x -> 
-            x.hide() )
-        fun() -> ()
-
 type Tabsheet = 
     | TabsheetParty
+    | TabsheetData
     | TabsheetScenary
     member x.Title = Tabsheet.title x
     static member values = FSharpType.unionCasesList<Tabsheet>
     
     static member title = function
         | TabsheetParty ->   "Партия"
+        | TabsheetData  ->   "Данные"
         | TabsheetScenary -> "Сценарий"
 
     static member descr = function
         | TabsheetParty ->   "Партия настраиваемых приборов"
+        | TabsheetData  ->   "Данные приборов партии, полученные при настройке"
         | TabsheetScenary -> "Сценарий настройки приборов партии"
 
 module private TabPagesHelp =
@@ -171,6 +160,45 @@ let gridProducts =
             AllowUserToDeleteRows = false,                                
             BorderStyle = BorderStyle.None  )
 
+let gridData, private gridDataRows =  
+    let x = 
+        new DataGridView( Parent = TabsheetData.RightTab,  
+                        AutoGenerateColumns = false, 
+                        Dock = DockStyle.Fill,
+                        BackgroundColor = form.BackColor,
+                        Name = "GridData",
+                        ColumnHeadersHeight = 40, 
+                        RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing,
+                        RowHeadersWidth = 30,
+                        AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
+                        AllowUserToResizeRows = false,
+                        AllowUserToAddRows = false,
+                        AllowUserToDeleteRows = false,                                
+                        BorderStyle = BorderStyle.None  )
+    x.Columns.Add( new TextColumn( ReadOnly = true, HeaderText = "Наименование" ) ) |> ignore
+    let xs = 
+        Bps21.ProductionPoint.values |> List.map(fun pt -> 
+            x.Rows.Add() |> ignore
+            let row = x.Rows.[x.Rows.Count-1]
+            row.Tag <- pt
+            row.Cells.[0].Value <- pt.What
+            pt,row )   
+
+    x, xs
+
+module ProdPointRow =
+
+    let getRowOfProdPoint = 
+        let mxs = Map.ofList gridDataRows
+        fun pt ->
+            Map.find pt mxs
+
+    let tryGetProdPointOfRow = 
+        let mxs = 
+            gridDataRows |> List.map (fun (a,b) -> b.GetHashCode(),a) |> Map.ofList            
+        fun (row:DataGridViewRow) ->
+            Map.tryFind (row.GetHashCode()) mxs
+
 let productsToolsLayer = new Panel(Parent = TabsheetParty.BottomTab, Dock = DockStyle.Left, Width = 40 ) 
     
 let errorMessageBox title message = 
@@ -228,7 +256,5 @@ let initialize =
                         sz.Width + 10
                 c.Width <- max 50 w ))
 
-    form.Activated.AddHandler h
-    HardwareInfo.initialize()
-    
+    form.Activated.AddHandler h    
     fun () -> ()

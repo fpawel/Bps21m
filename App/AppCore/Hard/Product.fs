@@ -9,7 +9,7 @@ let private read3decimal n regn what =
     Mdbs.read3decimal comportConfig n regn what
 
 let readCurrent addy  =
-    read3decimal addy 2 "цифровой канал: показания: ток "
+    read3decimal addy 2 "ток БПС"
 
 
 
@@ -50,25 +50,43 @@ let readStatus n =
     Mdbs.read3bytes comportConfig n 0 2
     |> Result.bind(fun bytes ->
         match bytes with 
-        | [ ByteStatus status ;_; Byte.Bits(p1,_,_,_,p2,_,_,_);Byte.Bits(p3,_,_,_,_,_,_,_)]  ->                      
-            Ok (status, p1, p2, p3, bytes)
+        | [ ByteStatus status ;_; Byte.Bits(p3,_,_,_,_,_,_,_); Byte.Bits(p1,_,_,_,p2,_,_,_)]  ->
+            Ok (status, p1, p2, p3, bytesToStr bytes)
         | BytesToStr s -> Err ( sprintf "неожиданный ответ %A" s) )
 
 
 type Cmd =
     | Adjust of Current
     | SetAddr
+    | SetBoudRate
     | SetPorog of NPorog * PorogTriggerType
     | SetTuneMode of Current
-    | Tune of Current * int
+    | Tune of Current 
+    static member values = 
+        [   Adjust I_4mA
+            Adjust I_20mA
+            SetBoudRate
+            SetPorog (NPorog1, PorogInc)
+            SetPorog (NPorog1, PorogDec)
+            SetPorog (NPorog2, PorogInc)
+            SetPorog (NPorog2, PorogDec)
+            SetPorog (NPorog3, PorogInc)
+            SetPorog (NPorog3, PorogDec)
+            SetTuneMode I_4mA
+            SetTuneMode I_20mA
+            Tune I_4mA
+            Tune I_20mA
+        ]
+
     static member context = function  
-        | SetAddr -> 0x3E00, "Установка сетевого адреса"
-        | Adjust I_4mA -> 1, "Корректировка 4 мА"        
-        | Adjust I_20mA -> 2, "Корректировка 20 мА"
-        | SetTuneMode I_4mA -> 6, "Переключение режима подстройки 4 мА"
-        | SetTuneMode I_20mA -> 8, "Переключение режима подстройки 20 мА"
-        | Tune (I_4mA,n) -> (n <<< 8) + 7, sprintf "Подстройка 4 мА на %d" (n+1)
-        | Tune (I_20mA,n) -> (n <<< 8) + 9, sprintf "Подстройка 20 мА на %d" (n+1)
+        | SetAddr ->            0x3E00, "БПС: установка сетевого адреса"
+        | SetBoudRate ->        0x3F00, "БПС: установка скорости обмена"
+        | Adjust I_4mA ->       0x0100, "БПС: корректировка 4 мА"        
+        | Adjust I_20mA ->      0x0200, "БПС: корректировка 20 мА"
+        | SetTuneMode I_4mA ->  0x0600, "БПС: режима подстройки 4 мА"
+        | Tune I_4mA ->         0x0700, "БПС: подстройка 4 мА"
+        | SetTuneMode I_20mA -> 0x0800, "БПС: режим подстройки 20 мА"
+        | Tune I_20mA ->        0x0900, "БПС: подстройка 20 мА"
         | SetPorog (th,tt) -> 
             let x,s1 = 
                 match tt with
@@ -79,15 +97,15 @@ type Cmd =
                 | NPorog1 -> 3
                 | NPorog2 -> 4
                 | NPorog3 -> 10
-            (x <<< 8) + y, sprintf "Установка порога %d на %s" (th.Order + 1) s1
+            (x <<< 8) + y, sprintf "БПС: установка порога %d на %s" (th.Order + 1) s1
 
     static member what = Cmd.context >> snd
     static member code = Cmd.context >> fst
     member x.What = Cmd.what x
     member x.Code = Cmd.code x
 
-    member x.Perform n value = 
-        Mdbs.write comportConfig n x.Code x.What value
+    member x.Perform n answerRequired value  = 
+        Mdbs.write comportConfig n x.Code x.What answerRequired value
 
     static member PerformSetAddr addr = 
         SetAddr.Perform 0uy addr

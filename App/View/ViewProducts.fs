@@ -78,7 +78,7 @@ let initialize =
         let row = gridProducts.Rows.[e.RowIndex]        
         let cell = row.Cells.[e.ColumnIndex]
         let (~%%) = listContainsObj column
-        if  column === Columns.conn then
+        if column === Columns.conn then
             let text, fore, back =
                 match e.Value :?> Result<string,string> option with
                 | Some (Ok s) -> s, Color.Black, Color.White
@@ -100,4 +100,21 @@ let initialize =
                 | _ -> Color.White
             cell.ToolTipText <- text
             e.Value <- ""
+
+
+    gridData.CellFormatting.Add <| fun e ->
+        if e.ColumnIndex = 0 then () else
+        let p = gridData.Columns.[e.ColumnIndex].Tag :?> P
+        let row = gridData.Rows.[e.RowIndex]
+        let cell = row.Cells.[e.ColumnIndex]
+        match MainWindow.ProdPointRow.tryGetProdPointOfRow row with
+        | None -> ()
+        | Some prodPt ->            
+            match p.Product.Production.TryFind prodPt with
+            | None -> ()
+            | Some ( date, level, text ) -> 
+                cell.Style.BackColor <- Logging.backColor level
+                cell.Style.ForeColor <- Logging.foreColor level
+                e.Value <- sprintf "%A %s" date text
+
     fun () -> ()

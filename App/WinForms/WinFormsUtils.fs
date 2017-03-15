@@ -39,7 +39,7 @@ let buttonsMenu (font:Font) maxWidth xs =
             let sz = TextRenderer.MeasureText( text, font, Size( width, Int32.MaxValue), TextFormatFlags.WordBreak)
             sz.Height
         
-        let b = new Button(Parent = p, Width = width, Height = h + 18, Left = 5,
+        let b = new Button(Parent = p, Width = width, Height = h + 10, Left = 5,
                             FlatStyle = FlatStyle.Flat,
                             Text = text, TextAlign = ContentAlignment.MiddleLeft)        
         b.Click.Add <| fun _ ->  f b popup

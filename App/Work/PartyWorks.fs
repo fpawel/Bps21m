@@ -24,6 +24,10 @@ module private Helpers =
             if isKeepRunning() && p.IsChecked then 
                 f p ) 
 
+    type CmdProduct = Hard.Product.Cmd
+    type CmdStend = Hard.Stend.Cmd
+    type Rele = Hard.Stend.Rele
+
 
 
 type Bps21.ViewModel.Product with
@@ -34,10 +38,16 @@ type Bps21.ViewModel.Product with
         let! {Porog1 = p1; Porog2 = p2; Porog3 = p3} as a = x.ReadStendRele()
         let! _,p1_,p2_,p3_,_  as b = x.ReadProductStatus()
         if (p1,p2,p3) <> (p1_,p2_,p3_) then
-            Logging.error "несоответствие данных порогов, прибор: %A, стенд: %A" a b       
+            Logging.error "несоответствие данных порогов, прибор: %A, стенд: %A" b a       
         return! None }
 
 type Bps21.ViewModel.Party with
+    member x.FailProductionIfConnError prodPt = 
+        x.Products 
+        |> Seq.filter(fun p ->  p.IsChecked )
+        |> Seq.iter(fun p -> p.FailProductionIfConnError prodPt)
+
+
     member x.DoForEachProduct f = 
         let xs1 = x.Products  |> Seq.filter(fun p ->  p.IsChecked )
         if Seq.isEmpty xs1 then Err "приборы не отмечены" else
@@ -61,23 +71,32 @@ type Bps21.ViewModel.Party with
         }
 
     member x.WriteStend(cmd) = 
-        x.DoForEachProduct (fun p -> p.WriteStend cmd  ) 
+        x.DoForEachProduct (fun p -> p.WriteStend cmd |> ignore ) 
             |> Result.someErr
 
-    member x.WriteProduct cmd value = 
-        x.DoForEachProduct (fun p -> p.WriteProduct cmd value ) 
+    member x.WriteProducts (cmd,value) = 
+        x.DoForEachProduct (fun p -> p.WriteProduct (cmd,value) |> ignore ) 
             |> Result.someErr
 
-    member x.DoSetAddrs() = maybeErr{        
+    member x.SetNetAddrs() = maybeErr{        
         do! x.DoForEachProduct (fun product -> 
             maybeErr{
                 do! x.DoForEachProduct (fun p -> 
-                    let st = 
+                    let on = 
                         obj.ReferenceEquals(p,product)
                         |> Hard.Stend.PowerState.fromBool 
-                    let cmd = Hard.Stend.SetPower(Hard.Stend.PowerMain, st)
-                    p.WriteStend cmd )
-                do! Hard.Product.SetAddr.Perform 0uy (decimal product.Addr)
+                    let cmd = Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
+                    p.WriteStend cmd |> ignore )
+                
+                Hard.Product.comportConfig.BaudRate <- 2400
+                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
+                do! sleep 200
+                do! Hard.Product.SetBoudRate.Perform product.Addr Mdbs.AnswerNotRequired 9600M
+                do! sleep 200
+                Hard.Product.comportConfig.BaudRate <- 9600
+                
+                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
+                do! sleep 200
                 let! _ = product.ReadProductCurrent()
                 return ()
             } |> ignore         
@@ -111,6 +130,7 @@ module Delay =
         onStop.Value() 
         result
 
+    
 module ModalMessage = 
     let onShow = Ref.Initializable<_>(sprintf "ModalMessage.onShow %s:%s" __LINE__ __SOURCE_FILE__ )
     let getIsVivisble = Ref.Initializable<_>(sprintf "ModalMessage.getIsVivisble %s:%s" __LINE__ __SOURCE_FILE__ )
@@ -127,33 +147,48 @@ module private Helpers1 =
     let none _ = None
     let (<|>) what f = 
         Operation.CreateSingle (what, none) f 
+
+
     let (<-|->) (what,time,whatDelay) f = 
         Operation.CreateTimed (what, none) (Delay.create time whatDelay) f
     let (<||>) what xs =  Operation.CreateScenary ( what, none)  xs
-        
+    
+          
     type OpConfig = Config
     type Op = Operation
 
     let writeProducts (cmd,value) = 
-        let f() = party.WriteProduct cmd value
+        let f() = party.WriteProducts (cmd,value)
         cmd.What <|> f
 
     let writeStend cmd = 
         let f() = party.WriteStend cmd 
         cmd.What <|> f
 
-    let opDelay1 what time = 
+    let pause seconds = 
+        let time = TimeSpan.FromSeconds (float seconds)
+        Delay.perform 
+            (sprintf "Пауза %d с" seconds) 
+            (fun () -> time) 
+            false
+
+    let delay what time = 
+        Delay.perform what (fun () -> time) true
+
+    let delay1 what time = 
         what <|> fun () -> maybeErr{    
             do! Delay.perform what (fun () -> time) true }
 
-    let opDelay2 what time delayType = 
+    let delay2 what time delayType = 
         (what, time, delayType) <-|-> fun gettime -> 
             Delay.perform what gettime true 
 
     let _2minute = TimeSpan.FromMinutes 2.
     let _10sec = TimeSpan.FromSeconds 10.
 
-    let withСonfig (scenary:Operation)=
+    
+
+    let withСonfig (scenary:Operation) =
         let dummy msg = 
             Logging.debug "%s" msg
         
@@ -182,27 +217,141 @@ module private Helpers1 =
 
         scenary
 
+    let testProdPoint (prodPoint:ProductionPoint) testWork = 
+        prodPoint.What <|> fun () -> 
+            let r = testWork()
+            party.FailProductionIfConnError prodPoint
+            r
+
+    let simpleTest x ok (s:string) = 
+        if x then Ok ok else Err s
+
+    
+
+let adjust() = maybeErr {
+    do! party.WriteStend CmdStend.Set4mA
+    do! pause 1
+    do! party.WriteProducts CmdProduct.Adjust4mA
+    do! pause 1
+    do! party.WriteStend CmdStend.Set20mA
+    do! pause 1
+    do! party.WriteProducts CmdProduct.Adjust20mA
+    do! pause 1
+    let U_min,U_max = let h,_ = party.Party in h.ProductType.U1            
+    do! party.DoForEachProduct(fun p -> 
+        maybeErr{
+            let! U = p.ReadStendTension()
+            p.SetProduction 
+                Adjust
+                (U >= U_min && U <= U_max)
+                (sprintf "контроль Uл %M...%M: %M" U_min U_max U)
+        } |> ignore
+    )
+}
+
+let readCurrent (p:P) = result{
+    let! stendCurrent = p.ReadStendCurrent()
+    let! productCurrent = p.ReadProductCurrent()
+    let d = abs (stendCurrent - productCurrent)
+    return! 
+        simpleTest
+            (d < appCfg.CurrentDifferenceLimit)
+            stendCurrent
+            (   sprintf """Разность тока %M измеренного стендом %M и 
+полученного по цифровому каналу %M превысила максимально допустимую %M, 
+указанную в настройках приложения"""
+                    d stendCurrent productCurrent appCfg.CurrentDifferenceLimit)
+    }
+
+let rec tuneProduct (current:Current) startTime getTimeLimit (p:P) =  maybeErr{        
+    let! rele = p.ReadStendRele()
+    let a = rele.Status, rele.SpMode, rele.Failure
+    let b = true, true,false
+    if a <> b then
+        return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b else
+    let! currentValue = readCurrent p
+    let d = current.Current - currentValue
+    if abs d < 0.04m then return! None else
+    do! p.WriteProduct ( CmdProduct.Tune current, d )
+    do! sleep 100
+    return!
+            
+        if DateTime.Now - startTime > getTimeLimit() then 
+            Some <| sprintf "Превышен лимит времени %A" (getTimeLimit()) 
+        else
+            tuneProduct current startTime  getTimeLimit p 
+}
+
+let tune current = 
+    let prod = Tune current
+    ( prod.What, _2minute, DelayTune) <-|-> fun getTimeLimit -> 
+        let tuneResult = maybeErr{
+            do! party.WriteStend (CmdStend.SetCurrent <| Some current)
+            do! pause 1
+            do! party.WriteProducts (CmdProduct.SetTuneMode current, current.Current)
+            do! pause 1
+            do! party.DoForEachProduct( fun product -> 
+                match tuneProduct current DateTime.Now getTimeLimit product with
+                | None -> product.SetProduction prod true "ok" 
+                | Some err -> product.SetProduction prod false err )
+            do! party.WriteProducts (CmdProduct.SetTuneMode current, current.Current)
+            do! pause 1
+        }
+        party.FailProductionIfConnError prod
+        tuneResult
+
+
+
+
+
+let testAlarmFailure = 
+    let test x = simpleTest x ()
+    testProdPoint TestAlarmFailure <| fun () -> maybeErr{
+        do! party.WriteStend (CmdStend.SetCurrent None)
+        do! pause 1
+        do! party.DoForEachProduct( fun product -> 
+            maybeErr{
+                let! rele = product.ReadStendRele()
+                do! test 
+                        (rele = Rele.failureMode) 
+                        ( sprintf "%s, должно быть %s" rele.What Rele.failureMode.What )
+                let! current = readCurrent product
+                do! test
+                        (current <= 2m)
+                        (sprintf "ток выхода %M мА, должен быть не более 2 мА" current )
+                let! (status,_,_,_,_) = product.ReadProductStatus()
+                do! test
+                        (status = Hard.Product.Failure)
+                        (sprintf "статус %s, должен быть %s" status.What Hard.Product.Failure.What )
+                return ()
+                }
+            |> ignore  )
+    }
+
+let mainPowerOn = 
+    ("Подача основного питания", _2minute, DelayPowerOn) <-|-> fun getTime -> maybeErr{
+        do! party.WriteStend CmdStend.MainPowerOn
+        do! Delay.perform "Пауза после подачи осн. питания" getTime true 
+    }
+
+let setNetAddrs = 
+    "Установка сетевых адресов" <|> fun () -> maybeErr{
+        do! party.SetNetAddrs()
+        do! party.WriteStend CmdStend.MainPowerOn
+    }
+
 let main = 
-    "Настройка БПС21М3" <||> [
-        "Корректировка 4-20 мА" <||> [
-            writeStend Hard.Stend.Cmd.MainPowerOn
-            opDelay2 "Пауза 2 мин." _2minute DelayPowerOn
-
-            writeStend Hard.Stend.Cmd.Set4mA
-            opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
-        
-            writeProducts Hard.Product.Cmd.Adjust4mA
-            opDelay2 "Пауза 10 с" _10sec DelayAdjust
-
-            writeStend Hard.Stend.Cmd.Set20mA
-            opDelay2 "Пауза 10 с" _10sec DelayAdjust
-
-            writeProducts Hard.Product.Cmd.Adjust20mA
-            opDelay2 "Пауза 10 с" _10sec DelaySetCurrent
-        ]
+    "Настройка БПС-21М3" <||> [
+        mainPowerOn
+        setNetAddrs
+        testProdPoint Adjust adjust
+        tune I_4mA
+        tune I_20mA
+        testAlarmFailure
     ] |> withСonfig
 
-let all = Op.MapReduce Some main 
+let all = 
+    Op.MapReduce Some main 
 
 [<AutoOpen>]
 module private Helpers3 =
@@ -225,7 +374,7 @@ type Bps21.ViewModel.Party with
 
     member x.RunWriteProduct (cmd:Hard.Product.Cmd, value) = 
         sprintf "%s, %M" cmd.What value -->> fun () -> 
-            party.WriteProduct cmd value
+            party.WriteProducts (cmd,value)
 
     member x.RunSetAddrs() = 
-        "Установка сетевых адресов" -->> x.DoSetAddrs
+        Thread2.run setNetAddrs

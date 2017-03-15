@@ -36,6 +36,13 @@ type AppConfigView() =
         and set v = 
             config.Comport <- v
 
+    [<DisplayName("Разность тока")>]
+    [<Description("Максимально допустимая разность тока измеренного стендом и полученного по цифровому каналу")>]
+    member x.DiffIMax
+        with get() = config.CurrentDifferenceLimit
+        and set v = 
+            config.CurrentDifferenceLimit <- v
+
     override __.ToString() = ""
 
 

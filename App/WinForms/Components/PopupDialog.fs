@@ -53,7 +53,7 @@ let create<'a> i (getValue : unit -> 'a option) (accept : 'a -> unit) =
             y <- i.Content.Bottom + 3
 
     let buttonAccept = new Button( Parent = p, Left = 10, Width = i.Width - 20, 
-                                   Top = y, Height = 40, Text=i.ButtonAcceptText, 
+                                   Top = y, Height = 25, Text=i.ButtonAcceptText, 
                                    FlatStyle = FlatStyle.Flat,
                                    Enabled = getValue().IsSome )
     p.Height <- buttonAccept.Bottom + 5

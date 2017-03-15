@@ -5,7 +5,8 @@ open System
 
 
 type ProductType =
-    {   Number : int
+    {   Number : int option
+        Name : string
         // контроль напряжения питания линии датчика 
         U1 : decimal * decimal
         U2 : decimal * decimal
@@ -14,25 +15,32 @@ type ProductType =
     }
     static member what (x : ProductType) =  x.What
     member x.What = 
-        let n = x.Number
-        sprintf "ИБЯЛ.411111.047-%s%d" (if n < 10 then "0" else "") n
+        let n = 
+            match x.Number with
+            | Some n -> sprintf "-%s%d" (if n < 10 then "0" else "") n
+            | _ -> ""
+
+        sprintf "ИБЯЛ.411111.047%s БПС21М3-%s" n x.Name
     
 [<AutoOpen>]
 module private Helpers =
     let productTypes = 
-        [   yield { Number = 5
+        [   yield { Number = Some 5
+                    Name = "220×24"
                     U1 = 23.5m, 24.5m 
                     U2 = 23m, 24.5m 
                     In = 260m, 10m }
 
-            for n in [3;4;7] do
-                yield { Number = n
+            for n, name in [ 3, "24×16-ibIIC"; 4,"24×16-ibIIC-P"; 7,"220×16-ibIIC"] do
+                yield { Number = Some n
+                        Name = name
                         U1 = 14.5m, 15.1m 
                         U2 = 14.2m, 15m 
                         In = 170m, 5m }
 
-            for n in [1;2;6] do
-                yield { Number = n
+            for n,name in [1, "24×16-ibIIB"; 2, "24×16-ibIIB-P"; 6, "220×16-ibIIB"] do
+                yield { Number = Some n
+                        Name = name
                         U1 = 14.5m, 15.1m 
                         U2 = 14.2m, 15m 
                         In = 210m, 10m } ] |> List.sortBy(fun {Number = n} -> n)
@@ -53,12 +61,24 @@ type Current =
         | I_4mA -> "4 мА"
         | I_20mA -> "20 мА"
 
-type ProdPt =
+type ProductionPoint =
     | Adjust
     | Tune of Current
-    | TestLoad
-    | TestFailure
-    | TestReservedPower
+    | TestAlarmFailure 
+    static member values = 
+        [   Adjust
+            Tune I_4mA
+            Tune I_20mA
+            TestAlarmFailure 
+        ]
+    member x.What = 
+        match x with
+        | Adjust -> "Корректировка 4-20 мА"
+        | Tune i -> sprintf "Корректировка Iвых %s" i.What 
+        | TestAlarmFailure  -> "Проверка режима ОТКАЗ"
+
+
+    
 
 type Id = string
 
@@ -67,7 +87,7 @@ type Product =
         IsChecked : bool        
         Addr : byte
         Serial : int
-        ProdLogLines : Map<ProdPt, Logging.Line > }
+        Production : Map<ProductionPoint, Logging.Line > }
 
     member x.What = Product.what x
 
@@ -83,7 +103,7 @@ type Product =
             Addr = addy
             Serial = serial
             IsChecked = true
-            ProdLogLines = Map.empty }
+            Production = Map.empty }
 
 type ProdOpInfo =
     {   RunStart : DateTime option 
@@ -135,20 +155,18 @@ module Party =
 
 type DelayType = 
     | DelayPowerOn 
-    | DelaySetCurrent
-    | DelayAdjust
+    | DelayTune
     static member values = 
         [   DelayPowerOn 
-            DelaySetCurrent
-            DelayAdjust ]
+            DelayTune  ]
 
     static member what = function
         | DelayPowerOn -> "включение питания"
-        | DelaySetCurrent -> "установка входного тока"
-        | DelayAdjust -> "корректировка показаний"
+        | DelayTune -> "таймаут подстройки тока"
 
     member x.What = DelayType.what x
     member x.Prop = DelayType.getPropertyName x
 
     static member getPropertyName (x:DelayType) =  FSharpValue.unionCaseName x
+
 

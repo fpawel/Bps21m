@@ -7,26 +7,12 @@ open System.Collections.Generic
 open Bps21
 
 [<AutoOpen>]
-module private ViewModelPartyHelpers =
-
+module private PartyViewModelHelpers =
     type PartyPath = Repository.PartyPath
 
     type P = Bps21.ViewModel.Product
     type Col = System.Windows.Forms.DataGridViewTextBoxColumn
     type Cols = System.Windows.Forms.DataGridViewColumnCollection
-
-    let createProductViewModel productType p  = 
-
-        let col = new Col(HeaderText = Bps21.Product.what p, Visible = p.IsChecked)
-        let x = ViewModel.Product(p, productType )     
-        Runtime.PropertyChanged.add x <| fun e ->
-            match e.PropertyName with
-            | "IsChecked" -> col.Visible <- x.IsChecked
-            | "What" -> col.HeaderText <- x.What
-            | _ -> ()
-        col.Tag <- x
-        x
-
 
 type ProductTypesConverter() = 
     inherit StringConverter()
@@ -52,7 +38,7 @@ type Party
         let x = BindingList<P>()
         let setProducts xs = 
             x.Clear()
-            xs |> List.map (createProductViewModel productType )
+            xs |> List.map (P.New productType )
             |> List.iter x.Add
         setProducts partyData.Products
         x, setProducts
@@ -109,13 +95,14 @@ type Party
     
     member x.AddNewProduct() = 
         Product.New 0 (x.NewValidAddr())
-        |> createProductViewModel productType 
+        |> P.New productType 
         |> products.Add 
         
     member __.DeleteProduct(product) = 
         let r = products.Remove( product )
         if not r then            
             failwith "Bps21.ViewModel.Party.DeleteProduct : missing element"
+        product.Remove()
         
     member x.HasOneCheckedProduct() =
         products

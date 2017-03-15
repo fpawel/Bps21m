@@ -8,8 +8,9 @@ open Bps21.ViewModel.Operations
 open MainWindow
 
 let operations = BindingList<RunOperationInfo>()
-let showScenaryReport = Ref.Initializable<_>(sprintf "show'performing'report %s:%s" __LINE__ __SOURCE_FILE__ )
-let show'performing'message = Ref.Initializable<_>(sprintf "show'performing'message %s:%s" __LINE__ __SOURCE_FILE__ )
+let closeScenaryReport = Ref.Initializable<_>(sprintf "closeScenaryReport %s:%s" __LINE__ __SOURCE_FILE__ )
+let showScenaryReport = Ref.Initializable<_>(sprintf "showScenaryReport %s:%s" __LINE__ __SOURCE_FILE__ )
+let showPerformingMessage = Ref.Initializable<_>(sprintf "showPerformingMessage %s:%s" __LINE__ __SOURCE_FILE__ )
 
 [<AutoOpen>]
 module private Helpers1 =
@@ -23,7 +24,7 @@ let isKeepRunning () = scenaryKeepRunning.Get()
 let notKeepRunning() = not (scenaryKeepRunning.Get())
 let forceStop() = scenaryKeepRunning.Value <- false
 
-let add'keep'running f = 
+let addScenaryKeepRunningChangedHandler f = 
     scenaryKeepRunning.AddChanged f
 
 
@@ -49,7 +50,7 @@ module private Helpers2 =
             match  x.Value with
             | Some (op:Operation) -> 
                 op.RunInfo.AddLogging l s                 
-                show'performing'message.Value l s
+                showPerformingMessage.Value l s
             | _ -> ()
             
         |> ignore
@@ -62,10 +63,10 @@ module private Helpers2 =
         MessageBox.Show(s,"СТМ-30М", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
         |> ignore
 
-let add'operation'changed f = 
+let addOperationChangedListener f = 
     operation.AddChanged (snd >> f)
 
-let private is'running = 
+let private isRunning = 
     let x = Ref.Observable(false)
     MainWindow.form.Closing.Add <| fun e ->
         if x.Value then 
@@ -77,7 +78,7 @@ let private is'running =
 module IsRunningChangedEvent =
 
     let addHandler f = 
-        is'running.AddChanged <| fun e -> 
+        isRunning.AddChanged <| fun e -> 
             safe form <| fun () -> 
                 f e 
 
@@ -164,42 +165,37 @@ let PerfomOperationEvent = perfomOperationEvent.Publish
 
 let run =
     
-    let do'beg op = 
+    let performBeginOperation op = 
         let prev'op = operation.Get()
         operation.Set (Some op)
-        show'performing'message.Value Logging.Info ""
+        showPerformingMessage.Value Logging.Info ""
         perfomOperationEvent.Trigger(op,true)
         fun () -> 
             operation.Set prev'op
             perfomOperationEvent.Trigger(op,false)
 
-
-    fun  (x : Operation)  -> 
-        
-        if scenaryKeepRunning.Value || is'running.Value then
+    fun  (x : Operation)  ->         
+        if scenaryKeepRunning.Value || isRunning.Value then
             failwith "already performing"
+        closeScenaryReport.Value()
         scenary.Set x
         operation.Set (Some x)
         scenaryKeepRunning.Value <- true
-        is'running.Set true   
+        isRunning.Set true   
         for p in party.Products do
             p.Connection <- None 
-        Logging.info "Начало выполнения сценария %A" x.FullName     
-        
+        Logging.info "Начало выполнения сценария %A" x.FullName
         let dostart, dostop = MyWinForms.Utils.timer 10000 AppContent.save
         dostart()
-
         async{
-            let result = Operation.Perform do'beg isKeepRunning x
+            let result = Operation.Perform performBeginOperation isKeepRunning x
             let scenaryWasBreakedByUser = (scenaryKeepRunning.Value = false)
-            scenaryKeepRunning.Value <- false
-            
+            scenaryKeepRunning.Value <- false            
             let level,message = 
                 match result with
                 | Some error ->
                     Logging.Error, sprintf "Выполнение завершилось с ошибкой. %s" error
                 | _ ->
-
                     if Operation.WasErrorWhenRunning x then
                         Logging.Warn, "при выполнении произошли ошибки"
                     elif scenaryWasBreakedByUser then
@@ -213,7 +209,7 @@ let run =
             let title = sprintf "%s %s" x.RunInfo.Status x.FullName
             showScenaryReport.Value title level message 
             operation.Set None 
-            is'running.Set false
+            isRunning.Set false            
 //            for p in party.Products do
 //                p.Connection <- None 
             AppContent.save() }

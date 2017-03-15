@@ -25,7 +25,6 @@ let main () =
         Thread2.initialize()
         
         Report.initialize()
-        LeftBottom.initialize()
         Menus.initialize()
         Ref.``check referencies was initialized``()
         

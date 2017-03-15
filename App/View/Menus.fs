@@ -32,9 +32,9 @@ module private Helpers =
         |> Map.toList
         |> List.map( fun (_,x) -> x.DataBoundItem :?> P )
 
-    let simpleMenu = MyWinForms.Utils.buttonsMenu (new Font("Consolas", 12.f)) ( Some 300 ) 
+    let simpleMenu  = MyWinForms.Utils.buttonsMenu (new Font("Consolas", 12.f)) ( Some 300 ) 
 
-    let popupNumberDialog<'a>     
+    let popupNumberDialog<'a>
         prompt title tryParse work 
         (btn : Button) 
         (parentPopup : MyWinForms.Popup) =
@@ -56,60 +56,26 @@ module private Helpers =
         dialog.Show btn
 
 
-    let popupTuneStep (current :Current)    
-        (btn : Button) 
-        (parentPopup : MyWinForms.Popup) =
-
-        let p = new Panel(Width = 290, Height = 100)
-
-        let p1 = new Panel(Parent = p, Dock = DockStyle.Top, Height = 60)       
-        let r2 = new RadioButton(Parent = p1, Dock = DockStyle.Top, Text = "Уменьшение")       
-        let r1 = new RadioButton(Parent = p1, Dock = DockStyle.Top, Text = "Увеличение", Checked = true )
-        
-        let tb1 = new TextBox(Parent = p, Dock = DockStyle.Top, Text = "1" )
-        let _ = new Label(Parent = p, Dock = DockStyle.Top, Text = "Шаг подстройки")       
-
-        
-        let dialog,validate  = 
-            popupDialog 
-                { Dlg.def() with 
-                    ButtonAcceptText = "Применить" 
-                    Title = "Подстройка тока " + current.What
-                    Width = 300
-                    Content = p }
-                ( fun () -> 
-                    let b,v = Int32.TryParse tb1.Text
-                    if b && v > 0 && v < 0xffff then
-                        Some (v, if r1.Checked then 1m else 0m)
-                    else 
-                        None )
-                ( fun (value, inc) ->  
-                    parentPopup.Hide()
-                    party.RunWriteProduct ( Hard.Product.Cmd.Tune(current,value), inc )
-                    ) 
-        tb1.TextChanged.Add <| fun _ -> validate()
-        
-        dialog.Show btn
-
-
-
 let deviceToolsPopup = 
     [   yield "Установка адресов", fun _ (parentPopup : MyWinForms.Popup) ->
             parentPopup.Close()
             party.RunSetAddrs()       
             
-        for pt in [Stend.PowerMain; Stend.PowerReserve] do     
-            for ps in [Stend.PowerOn; Stend.PowerOff] do 
-                let cmd = Stend.SetPower(pt,ps)
-                yield cmd.What, fun _ (parentPopup : MyWinForms.Popup) ->
-                    parentPopup.Close()
-                    party.RunWriteStend(cmd)
+        for cmd in Stend.Cmd.values do     
+            yield cmd.What, fun _ (parentPopup : MyWinForms.Popup) ->
+                parentPopup.Close()
+                party.RunWriteStend(cmd)
+
         yield!
-            [I_4mA; I_20mA]
-            |> List.map (fun x -> 
-                let what = "Подстройка тока " + x.What
-                what,  popupTuneStep x ) ]
-    |> simpleMenu
+            Hard.Product.Cmd.values
+                |> List.map( fun cmd -> 
+                    cmd.What, 
+                        popupNumberDialog 
+                            (sprintf "Введите значение аргумента команды %A" cmd.What)
+                            cmd.What
+                            String.tryParseDecimal
+                            (fun value -> party.RunWriteProduct(cmd,value) ) ) ]
+    |> MyWinForms.Utils.buttonsMenu (new Font("Consolas", 10.f)) ( Some 400 ) 
     
 
 let private initButtons1 = 

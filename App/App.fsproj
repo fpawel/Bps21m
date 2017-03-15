@@ -112,7 +112,6 @@
     <Compile Include="View\SelectScenaryDialog.fs" />
     <Compile Include="View\PartyProductsDialogs.fs" />
     <Compile Include="View\AppConfigView.fs" />
-    <Compile Include="View\LeftBottom.fs" />
     <Compile Include="View\Menus.fs" />
     <Compile Include="Programm.fs" />
     <None Include="Fsx\untune.fsx" />

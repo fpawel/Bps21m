@@ -16,6 +16,7 @@ module private ViewModelProductHelpers =
         | _ -> ""
 
     let fmtDecOpt = Option.map Decimal.toStr6 >> Option.withDefault ""
+    type Col = System.Windows.Forms.DataGridViewTextBoxColumn
     
 
 type Product(p : P, getProductType : unit -> ProductType) =
@@ -30,21 +31,42 @@ type Product(p : P, getProductType : unit -> ProductType) =
     let mutable productStatus : Hard.Product.Status option = None
     let mutable rele : Hard.Stend.Rele option = None
     
+    let productionChangedEvent = Event<Product * ProductionPoint * Logging.Line >()
+
+    let prodPointsColumn = 
+        let col = new Col(HeaderText = Bps21.Product.what p)
+        MainWindow.gridData.Columns.Add(col) |> ignore
+        col
+
+    
 
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
 
-    member x.WriteProduct (cmd:Hard.Product.Cmd) value =
+    [<CLIEvent>]
+    member private x.OnProductionChanged = productionChangedEvent.Publish
+
+    member private x.ForceUpdateProdPoint pt = 
+        let row = MainWindow.ProdPointRow.getRowOfProdPoint pt
+        let colIndex = prodPointsColumn.Index
+        let cell = row.Cells.[colIndex]
+        row.Cells.[colIndex].Value <- Map.tryFind pt p.Production 
+
+    member x.WriteProduct (cmd:Hard.Product.Cmd, value) =
+        let r = cmd.Perform x.Addr Mdbs.AnswerRequired value
         x.Connection <- 
-            cmd.Perform x.Addr value
+            r
             |> Result.map( fun () -> cmd.What )
             |> Some
+        r
 
     member x.WriteStend (cmd:Hard.Stend.Cmd) =
+        let r = cmd.Perform x.Addr 
         x.Connection <- 
-            cmd.Perform x.Addr 
+            r
             |> Result.map( fun () -> cmd.What )
             |> Some
+        r
 
     member x.ReadProductCurrent() = 
         let r = Hard.Product.readCurrent x.Addr
@@ -111,7 +133,6 @@ type Product(p : P, getProductType : unit -> ProductType) =
                 sprintf "%A" a)
             |> Some
         r
-            
 
     member x.Connection
         with get () = connection
@@ -126,6 +147,7 @@ type Product(p : P, getProductType : unit -> ProductType) =
             if v <> p.IsChecked then
                 p <- { p with IsChecked = v}
                 x.RaisePropertyChanged "IsChecked"
+                prodPointsColumn.Visible <- v
                 
     member x.Addr
         with get () = p.Addr          
@@ -154,16 +176,45 @@ type Product(p : P, getProductType : unit -> ProductType) =
     member x.Porog3 = rele |> Option.map( fun a -> a.Porog3 ) 
     member x.Status = rele |> Option.map( fun a -> a.Status ) 
     member x.SpMode = rele |> Option.map( fun a -> a.SpMode ) 
-    member x.Failure = rele |> Option.map( fun a -> a.Failure ) 
-
-    
+    member x.Failure = rele |> Option.map( fun a -> a.Failure )     
     member x.Product 
         with get () = p
         and set other =
             if p = other then () else
             p <- other
-            x.RaisePropertyChanged "Product"
-            x.RaisePropertyChanged "What"
+            x.RaisePropertyChanged "Product"            
             x.RaisePropertyChanged "Serial"
+            x.RaisePropertyChanged "What"
+            prodPointsColumn.HeaderText <- x.What
 
     member x.What = P.what p
+
+    member x.FailProductionIfConnError pt =
+        match connection with
+        | Some (Err err) -> x.SetProduction pt false err
+        | _ -> ()
+
+    member x.SetProduction pt ok text =
+        let level = if ok then Logging.Info else Logging.Error 
+        let prod = x.Product.Production
+        let logLine = DateTime.Now,level,text
+        if Map.tryFind pt prod <> Some logLine then
+            p <- { p with Production = Map.add pt logLine prod }
+            productionChangedEvent.Trigger(x,pt,logLine)
+            Logging.write level "%s: %s, %s" x.What pt.What text
+
+    member private x.ProdPointColumn = prodPointsColumn
+
+    member x.Remove() = 
+        MainWindow.gridData.Columns.Remove x.ProdPointColumn
+
+    static member New productType p  = 
+        let x = Product(p, productType )     
+        x.ProdPointColumn.Tag <- x
+        for pt in ProductionPoint.values do
+            x.ForceUpdateProdPoint pt
+        x.OnProductionChanged.Add(fun (_, pt, _) -> 
+            x.ForceUpdateProdPoint pt
+            )
+        x
+

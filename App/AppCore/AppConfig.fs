@@ -31,11 +31,12 @@ module View =
 [<TypeConverter(typeof<ExpandableObjectConverter>)>]
 type ApplicatioConfig = 
     {   View : View.Config
-    
+        mutable CurrentDifferenceLimit : decimal
         mutable Comport : ComportConfig.Config }
     
     static member create() = {   
         View = View.Config.create()
+        CurrentDifferenceLimit = 10m
         Comport = ComportConfig.Config.dummy() }
 
 let config, save = Json.Config.create "app.config.json" ApplicatioConfig.create
