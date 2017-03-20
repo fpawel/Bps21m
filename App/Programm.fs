@@ -36,13 +36,16 @@ let main () =
 //        Logging.error "%A" e 
         MessageBox.Show( sprintf "%A" e ,"Исключение", MessageBoxButtons.OK, MessageBoxIcon.Error ) |> ignore   
     AppConfig.save()
+    Bps21.Hard.Stend.Config.save()
 
 
 let onAnotherInstanceExist() = 
     MessageBox.Show( "Нельзя создать более одного экземпляра приложения" ,"Производство СТМ-30М", MessageBoxButtons.OK, MessageBoxIcon.Information ) |> ignore   
     
 
-let mutexid = "Global\\{B1E7934A-F688-417f-8FCB-65C3985E9E27}"
+let mutexid = 
+    //"Global\\{B1E7934A-F688-417f-8FCB-65C3985E9E27}" + 
+    "Global\\" + Path.ofExe.Replace('\\','_').Replace(':','_')
 
 open System.Security.Principal
 
@@ -52,7 +55,7 @@ open System.Security.AccessControl
 [<STAThread>]
 do
     
-    use mutex = new System.Threading.Mutex(false, mutexid)
+    use mutex = new System.Threading.Mutex(false, mutexid )
     let si = new SecurityIdentifier(WellKnownSidType.WorldSid, null)
 
     let allowEveryoneRule =             

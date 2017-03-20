@@ -283,7 +283,7 @@ let tune current =
     let prod = Tune current
     ( prod.What, _2minute, DelayTune) <-|-> fun getTimeLimit -> 
         let tuneResult = maybeErr{
-            do! party.WriteStend (CmdStend.SetScalePointCurrent current)
+            do! party.WriteStend (CmdStend.SetCurrent current.Current)
             do! pause 5
             do! party.WriteProducts (CmdProduct.SetTuneMode current, current.Current)
             do! pause 5
@@ -300,7 +300,7 @@ let tune current =
 let testAlarmFailure = 
     let test x = simpleTest x ()
     testProdPoint TestAlarmFailure <| fun () -> maybeErr{
-        do! party.WriteStend CmdStend.SwitchOffCurrent
+        do! party.WriteStend (CmdStend.SetCurrent 0m)
         do! pause 1
         do! party.DoForEachProduct( fun product -> 
             maybeErr{
@@ -324,7 +324,7 @@ let testAlarmFailure =
 let testLoadCapacity = 
     let test x = simpleTest x ()
     testProdPoint LoadCapacity <| fun () -> maybeErr{
-        do! party.WriteStend (CmdStend.SetScalePointCurrent ScaleBeg)
+        do! party.WriteStend (CmdStend.SetCurrent 4m)
         do! pause 5
         // ... todo
     }

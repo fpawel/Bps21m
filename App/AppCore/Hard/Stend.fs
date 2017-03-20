@@ -118,51 +118,38 @@ let readRele n =
                 |> Ok
             | BytesToStr s -> 
                 Err <| sprintf "не верный формат ответа на запрос реле %s" s )
+  
 
-let private setCurrent n b1 b2 what =
-    Mdbs.write16 
-        comportConfig 
-        (sprintf "#%d: СТЕНД: %s" n what)
-        (addrbyte n) 
-        Mdbs.AnswerRequired 0x30 
-        [|b1; b2|]
+let setCurrent n current =
+    
+    match AppConfig.config.Stend.GetDACCurrent n current with
+    | None -> 
+        Err <| sprintf "СТЕНД %d: нет значения для тока %M мА в файле конфигурации" n current
+    | Some (b1,b2) ->
+        Mdbs.write16 
+            comportConfig 
+            (sprintf "#%d: СТЕНД: установить ток %M мА" n current)
+            (addrbyte n) 
+            Mdbs.AnswerRequired 0x30 
+            [|b1; b2|]
 
-let setScalePointCurrent n current =
-    let b1, b2, what = 
-        match current with
-        | ScaleBeg ->  0x02uy, 0xFCuy, "установить ток 4 мА"
-        | ScaleEnd -> 0x0Duy, 0x63uy, "установить ток 20 мА"
-        //| _ -> 0uy, 0uy, "отключить ток"
-    setCurrent n b1 b2 what
-
-let switchOffCurrent n = 
-    setCurrent n 0uy 0uy "отключить ток"
-
-let set12mA n = 
-    setCurrent n 0x08uy 0x2Cuy "установить ток 12 мА"
-
-
-
-
+   
 type Cmd = 
     | SetPower of PowerType * PowerState
-    | SetScalePointCurrent of ScalePoint
-    | SwitchOffCurrent 
+    | SetCurrent of decimal
 
     member cmd.Perform n =
         match cmd with
-        | SetScalePointCurrent current -> setScalePointCurrent n current
+        | SetCurrent current -> setCurrent n current
         | SetPower ( powerType, powerState) ->
             setPower powerType powerState n            
-        | SwitchOffCurrent ->
-            switchOffCurrent n
-
+        
     member x.What = 
         match x with
         | SetPower ( powerType, powerState) ->             
             whatDoPower powerState powerType
-        | SetScalePointCurrent current -> sprintf "СТЕНД: установить ток %M мА" current.Current
-        | SwitchOffCurrent  -> "СТЕНД: отключить ток"
+        | SetCurrent current -> sprintf "СТЕНД: установить ток %M мА" current
+        
 
     static member MainPowerOn = 
         SetPower(PowerMain, PowerOn)
@@ -171,16 +158,15 @@ type Cmd =
         SetPower(PowerMain, PowerOff)
 
     static member Set4mA = 
-        SetScalePointCurrent  ScaleBeg
+        (SetCurrent 4m)
 
     static member Set20mA = 
-        SetScalePointCurrent ScaleEnd
+        (SetCurrent 20m)
 
     static member values = 
         [   for pt in [PowerMain; PowerReserve] do     
                 for ps in [PowerOn; PowerOff] do 
                     yield SetPower(pt,ps)
-            yield SetScalePointCurrent ScaleBeg
-            yield SetScalePointCurrent ScaleEnd
-            yield SwitchOffCurrent
+            for v in [0m; 4m; 12m; 20m] do
+                yield SetCurrent v
         ]
