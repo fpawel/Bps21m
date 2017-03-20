@@ -26,7 +26,6 @@ type Product(p : P, getProductType : unit -> ProductType) =
     let mutable connection : Result<string,string> option = None
     let mutable productCurrent : decimal option = None
     let mutable stendCurrent : decimal option = None
-    let mutable stendTension : decimal option = None
     
     let mutable productStatus : Hard.Product.Status option = None
     let mutable rele : Hard.Stend.Rele option = None
@@ -37,8 +36,6 @@ type Product(p : P, getProductType : unit -> ProductType) =
         let col = new Col(HeaderText = Bps21.Product.what p)
         MainWindow.gridData.Columns.Add(col) |> ignore
         col
-
-    
 
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
@@ -88,23 +85,17 @@ type Product(p : P, getProductType : unit -> ProductType) =
             |> Some
         r
 
-    member x.ReadStendTension() = 
-        let r = Hard.Stend.readTension x.Addr
-        r |> Result.iter (fun value -> 
-            stendTension <- Some value
-            x.RaisePropertyChanged "StendTension" )
+    member x.ReadTensionLoad() = 
+        let r = Hard.Stend.readTensionLoad x.Addr
         x.Connection <- 
-            r |> Result.map( sprintf "U:%M:стенд" )
+            r |> Result.map( sprintf "U_load: %M: стенд" )
             |> Some
         r
 
-    member x.ReadTension() = 
-        let r = Hard.Stend.readTension x.Addr
-        r |> Result.iter (fun value -> 
-            stendTension <- Some value
-            x.RaisePropertyChanged "StendTension" )
+    member x.ReadTensionOpen() = 
+        let r = Hard.Stend.readTensionOpenCircuit x.Addr
         x.Connection <- 
-            r |> Result.map( sprintf "U:%M" )
+            r |> Result.map( sprintf "U_open: %M: стенд" )
             |> Some
         r
 
@@ -164,7 +155,6 @@ type Product(p : P, getProductType : unit -> ProductType) =
                 x.Product <- { p with Serial = v }
 
     member x.ProductCurrent = fmtDecOpt productCurrent
-    member x.StendTension = fmtDecOpt stendTension
     member x.StendCurrent = fmtDecOpt stendCurrent
 
     member x.ProductStatus = 

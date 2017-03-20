@@ -56,15 +56,15 @@ let readStatus n =
 
 
 type Cmd =
-    | Adjust of Current
+    | Adjust of ScalePoint
     | SetAddr
     | SetBoudRate
     | SetPorog of NPorog * PorogTriggerType
-    | SetTuneMode of Current
-    | Tune of Current 
+    | SetTuneMode of ScalePoint
+    | Tune of ScalePoint 
     static member values = 
-        [   Adjust I_4mA
-            Adjust I_20mA
+        [   Adjust ScaleBeg
+            Adjust ScaleEnd
             SetBoudRate
             SetPorog (NPorog1, PorogInc)
             SetPorog (NPorog1, PorogDec)
@@ -72,21 +72,21 @@ type Cmd =
             SetPorog (NPorog2, PorogDec)
             SetPorog (NPorog3, PorogInc)
             SetPorog (NPorog3, PorogDec)
-            SetTuneMode I_4mA
-            SetTuneMode I_20mA
-            Tune I_4mA
-            Tune I_20mA
+            SetTuneMode ScaleBeg
+            SetTuneMode ScaleEnd
+            Tune ScaleBeg
+            Tune ScaleEnd
         ]
 
     static member context = function  
         | SetAddr ->            0x3E00, "БПС: установка сетевого адреса"
         | SetBoudRate ->        0x3F00, "БПС: установка скорости обмена"
-        | Adjust I_4mA ->       0x0100, "БПС: корректировка 4 мА"        
-        | Adjust I_20mA ->      0x0200, "БПС: корректировка 20 мА"
-        | SetTuneMode I_4mA ->  0x0600, "БПС: режима подстройки 4 мА"
-        | Tune I_4mA ->         0x0700, "БПС: подстройка 4 мА"
-        | SetTuneMode I_20mA -> 0x0800, "БПС: режим подстройки 20 мА"
-        | Tune I_20mA ->        0x0900, "БПС: подстройка 20 мА"
+        | Adjust ScaleBeg ->       0x0100, "БПС: корректировка 4 мА"        
+        | Adjust ScaleEnd ->      0x0200, "БПС: корректировка 20 мА"
+        | SetTuneMode ScaleBeg ->  0x0600, "БПС: режима подстройки 4 мА"
+        | Tune ScaleBeg ->         0x0700, "БПС: подстройка 4 мА"
+        | SetTuneMode ScaleEnd -> 0x0800, "БПС: режим подстройки 20 мА"
+        | Tune ScaleEnd ->        0x0900, "БПС: подстройка 20 мА"
         | SetPorog (th,tt) -> 
             let x,s1 = 
                 match tt with
@@ -111,8 +111,8 @@ type Cmd =
         SetAddr.Perform 0uy addr
 
     static member Adjust4mA = 
-        (Adjust I_4mA, 4m)
+        (Adjust ScaleBeg, 4m)
 
     static member Adjust20mA = 
-        (Adjust I_20mA, 20m)
+        (Adjust ScaleEnd, 20m)
 

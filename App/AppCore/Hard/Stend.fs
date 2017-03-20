@@ -62,11 +62,18 @@ let setPower powerType powerState n =
         firstreg 
         [|0uy; a|]
 
-let readCurrent n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 0 (sprintf "#%d: ток СТЕНД" n)
+let read3 n addr what = 
+    Mdbs.read3decimal comportConfig (addrbyte n) addr (sprintf "СТЕНД %d: %s" n what)
 
-let readTension n = 
-    Mdbs.read3decimal comportConfig (addrbyte n) 2 (sprintf "#%d: напряжение СТЕНД" n) 
+let readCurrent n = 
+    read3 n 0 "ток"
+    
+let readTensionOpenCircuit n =
+    read3 n 2 "напряжение линии питания датчика без нагрузки" 
+
+let readTensionLoad n =
+    read3 n 6 "напряжение линии питания датчика под нагрузкой" 
+
 
 type Rele = 
     {   Status : bool
@@ -112,32 +119,50 @@ let readRele n =
             | BytesToStr s -> 
                 Err <| sprintf "не верный формат ответа на запрос реле %s" s )
 
-let setCurrent n current =
-    let xs, whatCurr = 
+let private setCurrent n b1 b2 what =
+    Mdbs.write16 
+        comportConfig 
+        (sprintf "#%d: СТЕНД: %s" n what)
+        (addrbyte n) 
+        Mdbs.AnswerRequired 0x30 
+        [|b1; b2|]
+
+let setScalePointCurrent n current =
+    let b1, b2, what = 
         match current with
-        | Some I_4mA ->  [| 0x03uy; 0x0Auy |], "установить ток 4 мА"
-        | Some I_20mA -> [| 0x0Duy; 0x6Buy |], "установить ток 20 мА"
-        | _ -> [| 0uy; 0uy |], "отключить ток"
-    let what = sprintf "#%d: СТЕНД: %s" n whatCurr
-    Mdbs.write16 comportConfig what (addrbyte n) Mdbs.AnswerRequired 0x30 xs
+        | ScaleBeg ->  0x02uy, 0xFCuy, "установить ток 4 мА"
+        | ScaleEnd -> 0x0Duy, 0x63uy, "установить ток 20 мА"
+        //| _ -> 0uy, 0uy, "отключить ток"
+    setCurrent n b1 b2 what
+
+let switchOffCurrent n = 
+    setCurrent n 0uy 0uy "отключить ток"
+
+let set12mA n = 
+    setCurrent n 0x08uy 0x2Cuy "установить ток 12 мА"
+
+
 
 
 type Cmd = 
     | SetPower of PowerType * PowerState
-    | SetCurrent of Current option
+    | SetScalePointCurrent of ScalePoint
+    | SwitchOffCurrent 
 
     member cmd.Perform n =
         match cmd with
-        | SetCurrent current -> setCurrent n current
+        | SetScalePointCurrent current -> setScalePointCurrent n current
         | SetPower ( powerType, powerState) ->
             setPower powerType powerState n            
+        | SwitchOffCurrent ->
+            switchOffCurrent n
 
     member x.What = 
         match x with
         | SetPower ( powerType, powerState) ->             
             whatDoPower powerState powerType
-        | SetCurrent (Some current) -> sprintf "СТЕНД: установить ток %M мА" current.Current
-        | SetCurrent None -> "СТЕНД: отключить ток"
+        | SetScalePointCurrent current -> sprintf "СТЕНД: установить ток %M мА" current.Current
+        | SwitchOffCurrent  -> "СТЕНД: отключить ток"
 
     static member MainPowerOn = 
         SetPower(PowerMain, PowerOn)
@@ -146,16 +171,16 @@ type Cmd =
         SetPower(PowerMain, PowerOff)
 
     static member Set4mA = 
-        SetCurrent (Some I_4mA)
+        SetScalePointCurrent  ScaleBeg
 
     static member Set20mA = 
-        SetCurrent (Some I_20mA)
+        SetScalePointCurrent ScaleEnd
 
     static member values = 
         [   for pt in [PowerMain; PowerReserve] do     
                 for ps in [PowerOn; PowerOff] do 
                     yield SetPower(pt,ps)
-            yield SetCurrent (Some I_4mA)
-            yield SetCurrent (Some I_20mA)
-            yield SetCurrent None
+            yield SetScalePointCurrent ScaleBeg
+            yield SetScalePointCurrent ScaleEnd
+            yield SwitchOffCurrent
         ]

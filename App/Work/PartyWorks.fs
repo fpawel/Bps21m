@@ -34,7 +34,6 @@ type Bps21.ViewModel.Product with
     static member TestRead (x:Bps21.ViewModel.Product) = maybeErr {
         let! _ = x.ReadProductCurrent()
         let! _ = x.ReadStendCurrent()
-        let! _ = x.ReadStendTension()
         let! {Porog1 = p1; Porog2 = p2; Porog3 = p3} as a = x.ReadStendRele()
         let! _,p1_,p2_,p3_,_  as b = x.ReadProductStatus()
         if (p1,p2,p3) <> (p1_,p2_,p3_) then
@@ -109,11 +108,8 @@ module Delay =
     let onStart = Ref.Initializable<_>(sprintf "Delay.start %s:%s" __LINE__ __SOURCE_FILE__ )
     let onStop = Ref.Initializable<_>(sprintf "Delay.stop %s:%s" __LINE__ __SOURCE_FILE__ )
     let onUpdate = Ref.Initializable<_>(sprintf "Delay.stop %s:%s" __LINE__ __SOURCE_FILE__ )
-
     let mutable private keepRunning = false
-
     let cancel() = keepRunning <- false
-
     let perform what gettime interrogate = 
         onStart.Value what gettime
         keepRunning <- true
@@ -240,7 +236,7 @@ let adjust() = maybeErr {
     let U_min,U_max = let h,_ = party.Party in h.ProductType.U1            
     do! party.DoForEachProduct(fun p -> 
         maybeErr{
-            let! U = p.ReadStendTension()
+            let! U = p.ReadTensionOpen()
             p.SetProduction 
                 Adjust
                 (U >= U_min && U <= U_max)
@@ -249,27 +245,28 @@ let adjust() = maybeErr {
     )
 }
 
-let readCurrent (p:P) = result{
+let testCurrent nominal (p:P) = result{
     let! stendCurrent = p.ReadStendCurrent()
     let! productCurrent = p.ReadProductCurrent()
     let d = abs (stendCurrent - productCurrent)
+    let limit = nominal * 0.005m
     return! 
         simpleTest
-            (d < appCfg.CurrentDifferenceLimit)
+            (d < limit )
             stendCurrent
             (   sprintf """Разность тока %M измеренного стендом %M и 
 полученного по цифровому каналу %M превысила максимально допустимую %M, 
 указанную в настройках приложения"""
-                    d stendCurrent productCurrent appCfg.CurrentDifferenceLimit)
+                    d stendCurrent productCurrent limit)
     }
 
-let rec tuneProduct (current:Current) startTime getTimeLimit (p:P) =  maybeErr{        
+let rec tuneProduct (current:ScalePoint) startTime getTimeLimit (p:P) =  maybeErr{        
     let! rele = p.ReadStendRele()
     let a = rele.Status, rele.SpMode, rele.Failure
     let b = true, true,false
     if a <> b then
         return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b else
-    let! currentValue = readCurrent p
+    let! currentValue = testCurrent current.Current p
     let d = current.Current - currentValue
     if abs d < 0.04m then return! None else
     do! p.WriteProduct ( CmdProduct.Tune current, d )
@@ -286,10 +283,10 @@ let tune current =
     let prod = Tune current
     ( prod.What, _2minute, DelayTune) <-|-> fun getTimeLimit -> 
         let tuneResult = maybeErr{
-            do! party.WriteStend (CmdStend.SetCurrent <| Some current)
-            do! pause 1
+            do! party.WriteStend (CmdStend.SetScalePointCurrent current)
+            do! pause 5
             do! party.WriteProducts (CmdProduct.SetTuneMode current, current.Current)
-            do! pause 1
+            do! pause 5
             do! party.DoForEachProduct( fun product -> 
                 match tuneProduct current DateTime.Now getTimeLimit product with
                 | None -> product.SetProduction prod true "ok" 
@@ -300,14 +297,10 @@ let tune current =
         party.FailProductionIfConnError prod
         tuneResult
 
-
-
-
-
 let testAlarmFailure = 
     let test x = simpleTest x ()
     testProdPoint TestAlarmFailure <| fun () -> maybeErr{
-        do! party.WriteStend (CmdStend.SetCurrent None)
+        do! party.WriteStend CmdStend.SwitchOffCurrent
         do! pause 1
         do! party.DoForEachProduct( fun product -> 
             maybeErr{
@@ -315,7 +308,7 @@ let testAlarmFailure =
                 do! test 
                         (rele = Rele.failureMode) 
                         ( sprintf "%s, должно быть %s" rele.What Rele.failureMode.What )
-                let! current = readCurrent product
+                let! current = product.ReadStendCurrent()
                 do! test
                         (current <= 2m)
                         (sprintf "ток выхода %M мА, должен быть не более 2 мА" current )
@@ -326,6 +319,14 @@ let testAlarmFailure =
                 return ()
                 }
             |> ignore  )
+    }
+
+let testLoadCapacity = 
+    let test x = simpleTest x ()
+    testProdPoint LoadCapacity <| fun () -> maybeErr{
+        do! party.WriteStend (CmdStend.SetScalePointCurrent ScaleBeg)
+        do! pause 5
+        // ... todo
     }
 
 let mainPowerOn = 
@@ -345,8 +346,8 @@ let main =
         mainPowerOn
         setNetAddrs
         testProdPoint Adjust adjust
-        tune I_4mA
-        tune I_20mA
+        tune ScaleBeg
+        tune ScaleEnd
         testAlarmFailure
     ] |> withСonfig
 

@@ -43,7 +43,6 @@ module Columns =
     let currProd = col1 "Iп" "ProductCurrent" 80
     let blockStatus = col1 "СТАТУС" "ProductStatus" 80
     let currStend = col1 "Iс" "StendCurrent" 80
-    let tensStend = col1 "U" "StendTension" 80
     let conn = col1 "Связь" "Connection" 80
 
     let columns = 
@@ -52,7 +51,6 @@ module Columns =
             blockStatus
             currProd
             currStend
-            tensStend
         ] @  rele
 
     let init = 
