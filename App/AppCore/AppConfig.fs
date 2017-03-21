@@ -78,12 +78,18 @@ module Stend =
 type ApplicatioConfig = 
     {   View : View.Config
         mutable Comport : ComportConfig.Config 
-        mutable Stend : Stend.Sets  }
+        mutable Stend : Stend.Sets  
+        mutable TuneI4 : decimal
+        mutable TuneI20 : decimal
+        }
     
     static member create() = 
         {   View = View.Config.create()
             Comport = ComportConfig.Config.dummy() 
             Stend = Stend.Sets.NewDefault()
+            TuneI4 = 0.04m
+            TuneI20 = 0.2m
+
         }
 
 let config, error, save = Json.Config.create "app.config.json" ApplicatioConfig.create

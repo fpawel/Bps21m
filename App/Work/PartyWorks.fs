@@ -268,7 +268,13 @@ let rec tuneProduct (scalePoint:ScalePoint) startTime getTimeLimit (p:P) =  mayb
         return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b else
     let! currentValue = p.ReadStendCurrent()
     let d = scalePoint.Current.Value - currentValue
-    if abs d < 0.04m then return! None else
+
+    let tuneErrorLimit = 
+        match scalePoint with
+        | ScaleBeg -> appCfg.TuneI4
+        | ScaleEnd -> appCfg.TuneI20
+
+    if abs d < tuneErrorLimit then return! None else
     do! p.WriteProduct ( CmdProduct.Tune scalePoint, d )
     do! sleep 100
     return!

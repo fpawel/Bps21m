@@ -57,7 +57,9 @@ type Current =
         | I4 -> 4m
         | I12 -> 12m
         | I20 -> 20m
+
     static member GetValue (x:Current) = x.Value
+    
         
 
 type ScalePoint = 

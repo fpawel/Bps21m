@@ -36,6 +36,20 @@ type AppConfigView() =
         and set v = 
             config.Comport <- v
 
+    [<DisplayName("4 мА, ворота")>]    
+    [<Description("Погрешность подстройки 4 мА")>]
+    member x.TuneI4 
+        with get() = config.TuneI4
+        and set v = 
+            config.TuneI4 <- v
+
+    [<DisplayName("20 мА, ворота")>]    
+    [<Description("Погрешность подстройки 20 мА")>]
+    member x.TuneI20 
+        with get() = config.TuneI20
+        and set v = 
+            config.TuneI20 <- v
+
     
 
     override __.ToString() = ""
