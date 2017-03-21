@@ -36,6 +36,8 @@ type AppConfigView() =
         and set v = 
             config.Comport <- v
 
+    
+
     override __.ToString() = ""
 
 

@@ -110,7 +110,7 @@ module Option =
         | None -> x
         | Some x' -> x'
 
-    let getWithf f = function
+    let getWithDefault f = function
         | None -> f()
         | Some x -> x
 

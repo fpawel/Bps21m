@@ -237,6 +237,13 @@ let initialize =
 
     let rec h = EventHandler( fun _ _ -> 
         form.Activated.RemoveHandler h
+
+        // показать оштбку файла конфигурации если есть
+        match AppConfig.error with
+        | None -> ()
+        | Some error ->
+            MessageBox.Show( error, "Ошибка файла конфигурации", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            |> ignore
         
         for g in get'grids() do 
             let dt = config.View.Grids.TryFind g.Name

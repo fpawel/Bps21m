@@ -149,7 +149,7 @@ module private RunInfoHelpers =
     let upd op y (x:Party) = 
         x.ProdLog <- Map.add (getHash op) y x.ProdLog
     let tryGetOp op (x:Party) = x.ProdLog.TryFind (getHash op)
-    let getOp x party  = tryGetOp x party |> Option.getWithf ProdOpInfo.createNew
+    let getOp x party  = tryGetOp x party |> Option.getWithDefault ProdOpInfo.createNew
 
 type Party with
     

@@ -11,7 +11,7 @@ open System.Drawing.Design
 
 open MyWinForms.Converters
 
-
+open Bps21
 
 module View = 
     type Grid =  
@@ -28,39 +28,62 @@ module View =
                 Grids = Map.empty
                 ScnDetailTextSplitterDistance = 0 
             }
-     
-type StednPlace =
-    {   DACCurrent : Map<decimal,byte*byte>
-    } 
 
-type Stend = 
-    {   mutable Places : Map<byte,StednPlace>
-        mutable DACCurrent : Map<decimal,byte*byte>
-    }
-    member y.GetDACCurrent n current = 
-        (   match y.Places.TryFind n with
-            | Some x -> x.DACCurrent
-            | _ -> y.DACCurrent )
-        |> Map.tryFind current   
+type TwoBytes = byte*byte
 
+type DACCurrents = Map<Current,TwoBytes>
+
+module Stend =
+    module Def =
+        let DI4 = 0x02uy, 0xFCuy
+        let DI12 = 0x08uy, 0x2Cuy
+        let DI20 = 0x0Duy, 0x63uy
+
+    type Place =
+        {   DACCurrents : DACCurrents
+        } 
+        static member NewDefault() = 
+            {   DACCurrents = 
+                    [   I4, Def.DI4
+                        I12, Def.DI12
+                        I20, Def.DI20 ]
+                    |> Map.ofList   
+            }
+
+    type Sets = 
+        {   mutable Places : Map<byte,Place>
+            mutable DI4 : TwoBytes
+            mutable DI12 : TwoBytes
+            mutable DI20 : TwoBytes
+        }
+        member y.GetDI n current =         
+            y.Places.TryFind n
+            |> Option.bind (fun x -> Map.tryFind current  x.DACCurrents )
+            |> Option.getWithDefault(fun () -> 
+                match current with
+                | I4 -> y.DI4
+                | I12 -> y.DI12
+                | I20 -> y.DI20
+                )
+        static member NewDefault() = 
+            {   Places =
+                    Map.ofList 
+                        [ for n in [1uy..10uy] -> n, Place.NewDefault() ] 
+                DI4 = 0x02uy, 0xFCuy
+                DI12 = 0x08uy, 0x2Cuy
+                DI20 = 0x0Duy, 0x63uy
+            }
 
 [<TypeConverter(typeof<ExpandableObjectConverter>)>]
 type ApplicatioConfig = 
     {   View : View.Config
         mutable Comport : ComportConfig.Config 
-        mutable Stend : Stend  }
+        mutable Stend : Stend.Sets  }
     
     static member create() = 
         {   View = View.Config.create()
             Comport = ComportConfig.Config.dummy() 
-            Stend = 
-                {   Places = Map.empty
-                    DACCurrent  = 
-                        [   4m,  (0x02uy, 0xFCuy)
-                            12m, (0x08uy, 0x2Cuy)
-                            20m, (0x0Duy, 0x63uy)  ] 
-                        |> Map.ofList
-                }
+            Stend = Stend.Sets.NewDefault()
         }
 
-let config, save = Json.Config.create "app.config.json" ApplicatioConfig.create
+let config, error, save = Json.Config.create "app.config.json" ApplicatioConfig.create

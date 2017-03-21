@@ -49,17 +49,24 @@ module private Helpers =
 type ProductType with 
     static member values = productTypes
 
+type Current = 
+    | I4 | I12 | I20
+    
+    member x.Value = 
+        match x with
+        | I4 -> 4m
+        | I12 -> 12m
+        | I20 -> 20m
+    static member GetValue (x:Current) = x.Value
+        
+
 type ScalePoint = 
     | ScaleBeg
     | ScaleEnd
     member x.Current = 
         match x with
-        | ScaleBeg -> 4m
-        | ScaleEnd -> 20m
-    member x.What = 
-        match x with
-        | ScaleBeg -> "4 мА"
-        | ScaleEnd -> "20 мА"
+        | ScaleBeg -> I4
+        | ScaleEnd -> I20
 
 type ProductionPoint =
     | Adjust
@@ -75,7 +82,7 @@ type ProductionPoint =
     member x.What = 
         match x with
         | Adjust -> "Корректировка 4-20 мА"
-        | Tune i -> sprintf "Корректировка Iвых %s" i.What 
+        | Tune i -> sprintf "Корректировка Iвых %M мА" i.Current.Value
         | LoadCapacity -> "Нагрузочная способность линии питания датчика"
         | TestAlarmFailure  -> "Режим ОТКАЗ"
 

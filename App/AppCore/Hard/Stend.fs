@@ -120,35 +120,43 @@ let readRele n =
                 Err <| sprintf "не верный формат ответа на запрос реле %s" s )
   
 
-let setCurrent n current =
-    
-    match AppConfig.config.Stend.GetDACCurrent n current with
-    | None -> 
-        Err <| sprintf "СТЕНД %d: нет значения для тока %M мА в файле конфигурации" n current
-    | Some (b1,b2) ->
-        Mdbs.write16 
-            comportConfig 
-            (sprintf "#%d: СТЕНД: установить ток %M мА" n current)
-            (addrbyte n) 
-            Mdbs.AnswerRequired 0x30 
-            [|b1; b2|]
+let setCurrent n current =    
+    let b1,b2 = AppConfig.config.Stend.GetDI n current    
+    Mdbs.write16 
+        comportConfig 
+        (sprintf "#%d: СТЕНД: установить ток %M мА" n current.Value)
+        (addrbyte n) 
+        Mdbs.AnswerRequired 0x30 
+        [|b1; b2|]
+
+let turnCurrentOff n =    
+    Mdbs.write16 
+        comportConfig 
+        (sprintf "#%d: СТЕНД: отключить ток" n )
+        (addrbyte n) 
+        Mdbs.AnswerRequired 0x30 
+        [|0uy; 0uy|]
 
    
 type Cmd = 
     | SetPower of PowerType * PowerState
-    | SetCurrent of decimal
+    | SetCurrent of Current
+    | TurnCurrentOff
 
     member cmd.Perform n =
         match cmd with
         | SetCurrent current -> setCurrent n current
         | SetPower ( powerType, powerState) ->
             setPower powerType powerState n            
+        | TurnCurrentOff ->
+            turnCurrentOff n
         
     member x.What = 
         match x with
         | SetPower ( powerType, powerState) ->             
             whatDoPower powerState powerType
-        | SetCurrent current -> sprintf "СТЕНД: установить ток %M мА" current
+        | SetCurrent current -> sprintf "СТЕНД: установить ток %M мА" current.Value
+        | TurnCurrentOff -> "СТЕНД: отключить ток" 
         
 
     static member MainPowerOn = 
@@ -158,15 +166,15 @@ type Cmd =
         SetPower(PowerMain, PowerOff)
 
     static member Set4mA = 
-        (SetCurrent 4m)
+        (SetCurrent I4)
 
     static member Set20mA = 
-        (SetCurrent 20m)
+        (SetCurrent I20)
 
     static member values = 
         [   for pt in [PowerMain; PowerReserve] do     
                 for ps in [PowerOn; PowerOff] do 
                     yield SetPower(pt,ps)
-            for v in [0m; 4m; 12m; 20m] do
+            for v in [ I4; I12; I20] do
                 yield SetCurrent v
         ]

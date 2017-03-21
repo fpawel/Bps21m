@@ -260,38 +260,38 @@ let testCurrent nominal (p:P) = result{
                     d stendCurrent productCurrent limit)
     }
 
-let rec tuneProduct (current:ScalePoint) startTime getTimeLimit (p:P) =  maybeErr{        
+let rec tuneProduct (scalePoint:ScalePoint) startTime getTimeLimit (p:P) =  maybeErr{        
     let! rele = p.ReadStendRele()
     let a = rele.Status, rele.SpMode, rele.Failure
     let b = true, true,false
     if a <> b then
         return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b else
-    let! currentValue = testCurrent current.Current p
-    let d = current.Current - currentValue
+    let! currentValue = testCurrent scalePoint.Current.Value p
+    let d = scalePoint.Current.Value - currentValue
     if abs d < 0.04m then return! None else
-    do! p.WriteProduct ( CmdProduct.Tune current, d )
+    do! p.WriteProduct ( CmdProduct.Tune scalePoint, d )
     do! sleep 100
     return!
             
         if DateTime.Now - startTime > getTimeLimit() then 
             Some <| sprintf "Превышен лимит времени %A" (getTimeLimit()) 
         else
-            tuneProduct current startTime  getTimeLimit p 
+            tuneProduct scalePoint startTime  getTimeLimit p 
 }
 
-let tune current = 
-    let prod = Tune current
+let tune scalePoint = 
+    let prod = Tune scalePoint
     ( prod.What, _2minute, DelayTune) <-|-> fun getTimeLimit -> 
         let tuneResult = maybeErr{
-            do! party.WriteStend (CmdStend.SetCurrent current.Current)
+            do! party.WriteStend (CmdStend.SetCurrent scalePoint.Current)
             do! pause 5
-            do! party.WriteProducts (CmdProduct.SetTuneMode current, current.Current)
+            do! party.WriteProducts (CmdProduct.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 5
             do! party.DoForEachProduct( fun product -> 
-                match tuneProduct current DateTime.Now getTimeLimit product with
+                match tuneProduct scalePoint DateTime.Now getTimeLimit product with
                 | None -> product.SetProduction prod true "ok" 
                 | Some err -> product.SetProduction prod false err )
-            do! party.WriteProducts (CmdProduct.SetTuneMode current, current.Current)
+            do! party.WriteProducts (CmdProduct.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 1
         }
         party.FailProductionIfConnError prod
@@ -300,7 +300,7 @@ let tune current =
 let testAlarmFailure = 
     let test x = simpleTest x ()
     testProdPoint TestAlarmFailure <| fun () -> maybeErr{
-        do! party.WriteStend (CmdStend.SetCurrent 0m)
+        do! party.WriteStend CmdStend.TurnCurrentOff
         do! pause 1
         do! party.DoForEachProduct( fun product -> 
             maybeErr{
@@ -324,7 +324,7 @@ let testAlarmFailure =
 let testLoadCapacity = 
     let test x = simpleTest x ()
     testProdPoint LoadCapacity <| fun () -> maybeErr{
-        do! party.WriteStend (CmdStend.SetCurrent 4m)
+        do! party.WriteStend CmdStend.Set4mA
         do! pause 5
         // ... todo
     }

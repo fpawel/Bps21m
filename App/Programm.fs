@@ -36,7 +36,6 @@ let main () =
 //        Logging.error "%A" e 
         MessageBox.Show( sprintf "%A" e ,"Исключение", MessageBoxButtons.OK, MessageBoxIcon.Error ) |> ignore   
     AppConfig.save()
-    Bps21.Hard.Stend.Config.save()
 
 
 let onAnotherInstanceExist() = 

@@ -140,7 +140,7 @@ module Party =
         let party =
             partiesHeaders
             |> Map.tryFind partyId
-            |> Option.getWithf( fun () -> 
+            |> Option.getWithDefault( fun () -> 
                 Logging.warn "партия %A отсутсвует в репозитории"  partyId
                 partiesHeaders |> Map.toList |> List.map snd 
                 |> List.maxBy ( fun (x:H) -> x.Date ) )
@@ -159,7 +159,7 @@ module Party =
                     Ok ()
                 with e ->
                     Err e.Message )
-        |> Option.getWithf(fun () -> 
+        |> Option.getWithDefault(fun () -> 
             Err "удаляемая партия отсутствует в базе данных" )
 
 let partiesHeadersDateTree partiesHeaders =

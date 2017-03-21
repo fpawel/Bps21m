@@ -9,25 +9,20 @@ open Json.Serialization
     
 
 
-let private retDummy<'a> (filename, dummy  : unit -> 'a) errorText =    
-    dummy(), Some (sprintf "ошибка файла конфигурации json \"%s\": %s" filename errorText ) 
+let private error<'a> (filename, createNewFunc  : unit -> 'a) errorText =    
+    createNewFunc(), Some (sprintf "ошибка файла конфигурации %A: %s" filename errorText ) 
 
-let read filename dummy =    
+let read filename createNewFunc =    
     let path =  IO.Path.Combine( IO.Path.ofExe, filename)
-    let retDummy = retDummy (filename, dummy)
-    let x, e = 
-        if IO.File.Exists path then 
-            try
-                match parse (IO.File.ReadAllText(path)) with
-                | Ok x -> x, None
-                | Err x -> retDummy x
-            with e -> retDummy <| sprintf "%A" e
-        else
-            retDummy "файл не существует"
-    match e with
-    | Some e -> Logging.error "%s" e
-    | _ -> ()
-    x
+    let error = error (filename, createNewFunc)
+    if IO.File.Exists path then 
+        try
+            match parse (IO.File.ReadAllText(path)) with
+            | Ok x -> x, None
+            | Err x -> error x
+        with e -> error <| sprintf "%A" e
+    else
+        createNewFunc(), None
 
 let write filename x' = 
     let path =  IO.Path.Combine( IO.Path.ofExe, filename)
@@ -44,6 +39,6 @@ let write filename x' =
     | _ -> ()
 
 let create filename dummy =         
-    let config = read filename dummy
+    let config,error = read filename dummy
     let save() = write filename config
-    config, save
+    config, error, save

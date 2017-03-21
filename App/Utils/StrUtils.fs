@@ -35,6 +35,9 @@ type String with
 
     static member getHashCode (x:string) = x.GetHashCode()
 
+    static member TryParseHexDecimalByte value =
+        Byte.TryParse(value,  Globalization.NumberStyles.HexNumber, null )
+
 
 module Seq =
 
