@@ -5,6 +5,7 @@ open System
 open Thread2
 
 open ViewModel.Operations
+open Bps21.Hard.Product
 
 [<AutoOpen>]
 module private Helpers = 
@@ -24,9 +25,9 @@ module private Helpers =
             if isKeepRunning() && p.IsChecked then 
                 f p ) 
 
-    type CmdProduct = Hard.Product.Cmd
     type CmdStend = Hard.Stend.Cmd
     type Rele = Hard.Stend.Rele
+    
 
 
 
@@ -227,18 +228,18 @@ module private Helpers1 =
 let adjust() = maybeErr {
     do! party.WriteStend CmdStend.Set4mA
     do! pause 1
-    do! party.WriteProducts CmdProduct.Adjust4mA
+    do! party.WriteProducts Cmd.Adjust4mA
     do! pause 1
     do! party.WriteStend CmdStend.Set20mA
     do! pause 1
-    do! party.WriteProducts CmdProduct.Adjust20mA
+    do! party.WriteProducts Cmd.Adjust20mA
     do! pause 1
     let U_min,U_max = let h,_ = party.Party in h.ProductType.U1            
     do! party.DoForEachProduct(fun p -> 
         maybeErr{
             let! U = p.ReadTensionOpen()
             p.SetProduction 
-                Adjust
+                Bps21.Adjust
                 (U >= U_min && U <= U_max)
                 (sprintf "контроль Uл %M...%M: %M" U_min U_max U)
         } |> ignore
@@ -275,7 +276,7 @@ let rec tuneProduct (scalePoint:ScalePoint) startTime getTimeLimit (p:P) =  mayb
         | ScaleEnd -> appCfg.TuneI20
 
     if abs d < tuneErrorLimit then return! None else
-    do! p.WriteProduct ( CmdProduct.Tune scalePoint, d )
+    do! p.WriteProduct ( Cmd.Tune scalePoint, d )
     do! sleep 100
     return!
             
@@ -286,18 +287,18 @@ let rec tuneProduct (scalePoint:ScalePoint) startTime getTimeLimit (p:P) =  mayb
 }
 
 let tune scalePoint = 
-    let prod = Tune scalePoint
+    let prod = Bps21.Tune scalePoint
     ( prod.What, _2minute, DelayTune) <-|-> fun getTimeLimit -> 
         let tuneResult = maybeErr{
             do! party.WriteStend (CmdStend.SetCurrent scalePoint.Current)
             do! pause 5
-            do! party.WriteProducts (CmdProduct.SetTuneMode scalePoint, scalePoint.Current.Value)
+            do! party.WriteProducts (Cmd.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 5
             do! party.DoForEachProduct( fun product -> 
                 match tuneProduct scalePoint DateTime.Now getTimeLimit product with
                 | None -> product.SetProduction prod true "ok" 
                 | Some err -> product.SetProduction prod false err )
-            do! party.WriteProducts (CmdProduct.SetTuneMode scalePoint, scalePoint.Current.Value)
+            do! party.WriteProducts (Cmd.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 1
         }
         party.FailProductionIfConnError prod
@@ -347,14 +348,20 @@ let setNetAddrs =
         do! party.WriteStend CmdStend.MainPowerOn
     }
 
+let setupPorogs p1 p2 p3 () = maybeErr{
+        for n,v in List.zip NPorog.values [p1; p2; p3] do
+            do! party.WriteProducts (Cmd.SetPorog(n, PorogInc), v)
+    }
+
 let main = 
     "Настройка БПС-21М3" <||> [
         mainPowerOn
         setNetAddrs
-        testProdPoint Adjust adjust
+        testProdPoint Bps21.Adjust adjust
         tune ScaleBeg
         tune ScaleEnd
-        testAlarmFailure
+        testLoadCapacity
+        testAlarmFailure        
     ] |> withСonfig
 
 let all = 
