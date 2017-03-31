@@ -55,26 +55,66 @@ module private Helpers =
         tb.TextChanged.Add <| fun _ -> validate()                        
         dialog.Show btn
 
+    let popupCustomCommandDialog (btn : Button) (parentPopup : MyWinForms.Popup) =
+        let pan = new Panel(Width = 290 )
+
+        let l1 = new Label(Text = "старший байт номера команды", Dock = DockStyle.Top, Parent = pan)
+        let tb1 = new TextBox(Parent = pan, Dock = DockStyle.Top )                    
+        let _ = new Label(Text = "младший байт номера команды", Dock = DockStyle.Top, Parent = pan)
+        let tb2 = new TextBox(Parent = pan, Dock = DockStyle.Top )
+        let _ = new Label(Text = "значение аргумента команды", Dock = DockStyle.Top, Parent = pan)
+        let tb3 = new TextBox(Parent = pan, Dock = DockStyle.Top )
+        pan.InvertChildrenOrder()
+        pan.Height <- 150
+
+        let dialog,validate  = 
+            popupDialog 
+                { Dlg.def() with 
+                    ButtonAcceptText = "Выполнить" 
+                    Title = "Отправка произвольной команды"
+                    Width = 300
+                    Content = pan }
+                ( fun () -> 
+                    maybe{
+                        let! h = Hex.tryParse tb1.Text
+                        let! l = Hex.tryParse tb2.Text
+                        let! v = String.tryParseDecimal tb3.Text
+                        
+                        if h < 0xFFUL && l < 0xFFUL then
+                            let code = int <| (h <<< 8) + l
+                            return  
+                                Hard.Product.CustomCmd code, v
+                        else
+                            return! None
+                    } )
+                ( fun (cmd,value) ->  
+                    parentPopup.Hide()
+                    party.RunWriteProduct( cmd, value)
+                    ) 
+        tb1.TextChanged.Add <| fun _ -> validate()
+        tb2.TextChanged.Add <| fun _ -> validate()
+        tb3.TextChanged.Add <| fun _ -> validate()
+        dialog.Show btn
+
 
 let deviceToolsPopup = 
-    [   yield "Установка адресов", fun _ (parentPopup : MyWinForms.Popup) ->
-            parentPopup.Close()
-            party.RunSetAddrs()       
-            
-        for cmd in Stend.Cmd.values do     
+    [   for cmd in Stend.Cmd.values do     
             yield cmd.What, fun _ (parentPopup : MyWinForms.Popup) ->
                 parentPopup.Close()
                 party.RunWriteStend(cmd)
 
         yield!
-            Hard.Product.Cmd.values
+            Hard.Product.Cmd.values1
                 |> List.map( fun cmd -> 
                     cmd.What, 
                         popupNumberDialog 
                             (sprintf "Введите значение аргумента команды %A" cmd.What)
                             cmd.What
                             String.tryParseDecimal
-                            (fun value -> party.RunWriteProduct(cmd,value) ) ) ]
+                            (fun value -> party.RunWriteProduct(cmd,value) ) ) 
+
+        yield "Отправка произвольной команды", popupCustomCommandDialog
+    ]
     |> MyWinForms.Utils.buttonsMenu (new Font("Consolas", 10.f)) ( Some 400 ) 
     
 

@@ -19,7 +19,7 @@ module private ViewModelProductHelpers =
     type Col = System.Windows.Forms.DataGridViewTextBoxColumn
     
 
-type Product(p : P, getProductType : unit -> ProductType) =
+type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit -> RLoadLine) =
     inherit ViewModelBase()    
     let mutable p = p
 
@@ -86,7 +86,7 @@ type Product(p : P, getProductType : unit -> ProductType) =
         r
 
     member x.ReadTensionLoad() = 
-        let r = Hard.Stend.readTensionLoad x.Addr
+        let r = Hard.Stend.readTensionLoad x.Addr (getRLoadLine())
         x.Connection <- 
             r |> Result.map( sprintf "U_load: %M: стенд" )
             |> Some
@@ -102,10 +102,26 @@ type Product(p : P, getProductType : unit -> ProductType) =
     member x.ReadProductStatus() = 
         let r = Hard.Product.readStatus x.Addr
         x.Connection <- 
-            r |> Result.map( fun (st, p1, p2, p3,_) -> 
+            r |> Result.map( fun (st, p1, p2, p3) -> 
                 productStatus <- Some st
                 x.RaisePropertyChanged "ProductStatus"
                 sprintf "%s, %b, %b, %b" st.What p1 p2 p3)
+            |> Some
+        r
+
+    member x.WriteID() = 
+        let r = Hard.Product.setID p.Addr p.Kind p.Serial
+        x.Connection <- 
+            r |> Result.map( fun () ->  "ID-->")
+            |> Some
+        r
+
+    member x.ReadID() = 
+        let r = Hard.Product.readID p.Addr
+        x.Connection <- 
+            r |> Result.map( fun (kind,serial) ->  
+                x.Product <- {x.Product with Serial = serial; Kind = kind }
+                "-->ID")
             |> Some
         r
 
@@ -154,6 +170,12 @@ type Product(p : P, getProductType : unit -> ProductType) =
             if v <> p.Serial then
                 x.Product <- { p with Serial = v }
 
+    member x.Kind
+        with get () = p.Kind
+        and set v = 
+            if v <> p.Kind then
+                x.Product <- { p with Kind = v }
+
     member x.ProductCurrent = fmtDecOpt productCurrent
     member x.StendCurrent = fmtDecOpt stendCurrent
 
@@ -174,17 +196,18 @@ type Product(p : P, getProductType : unit -> ProductType) =
             p <- other
             x.RaisePropertyChanged "Product"            
             x.RaisePropertyChanged "Serial"
+            x.RaisePropertyChanged "Kind"
             x.RaisePropertyChanged "What"
             prodPointsColumn.HeaderText <- x.What
 
     member x.What = P.what p
 
-    member x.FailProductionIfConnError pt =
+    member x.FailProductionIfConnectionError pt =
         match connection with
-        | Some (Err err) -> x.SetProduction pt false err
+        | Some (Err err) -> x.SetProduction pt (false,err)
         | _ -> ()
 
-    member x.SetProduction pt ok text =
+    member x.SetProduction pt (ok,text) =
         let level = if ok then Logging.Info else Logging.Error 
         let prod = x.Product.Production
         let logLine = DateTime.Now,level,text
@@ -198,8 +221,8 @@ type Product(p : P, getProductType : unit -> ProductType) =
     member x.Remove() = 
         MainWindow.gridData.Columns.Remove x.ProdPointColumn
 
-    static member New productType p  = 
-        let x = Product(p, productType )     
+    static member New productType rloadLine p  = 
+        let x = Product(p, productType, rloadLine )     
         x.ProdPointColumn.Tag <- x
         for pt in ProductionPoint.values do
             x.ForceUpdateProdPoint pt

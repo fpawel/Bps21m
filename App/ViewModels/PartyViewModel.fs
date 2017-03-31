@@ -33,12 +33,13 @@ type Party
     let mutable partyHeader = partyHeader
     let mutable partyData = partyData
     let productType() = partyHeader.ProductType 
+    let rLoadLine()  = partyData.RLoadLine
     
     let products, setProducts = 
         let x = BindingList<P>()
         let setProducts xs = 
             x.Clear()
-            xs |> List.map (P.New productType )
+            xs |> List.map (P.New productType rLoadLine)
             |> List.iter x.Add
         setProducts partyData.Products
         x, setProducts
@@ -94,8 +95,8 @@ type Party
     member __.NewValidAddr() = products |> Seq.map(fun x -> x.Addr)  |> Party.getNewValidAddy
     
     member x.AddNewProduct() = 
-        Product.New 0 (x.NewValidAddr())
-        |> P.New productType 
+        Product.New (x.NewValidAddr())
+        |> P.New productType rLoadLine
         |> products.Add 
         
     member __.DeleteProduct(product) = 
@@ -127,6 +128,15 @@ type Party
                 x.RaisePropertyChanged "ProductType"
                 setMainWindowTitle()
 
+    member x.RLoadLine 
+        with get() = partyData.RLoadLine.What
+        and set str = 
+            let v = RLoadLine.Parse str
+            if v <> partyData.RLoadLine then                
+                partyData <- { partyData with RLoadLine = v}
+                x.RaisePropertyChanged "RLoadLine"
+                setMainWindowTitle()
+
     member x.Name 
         with get() = partyHeader.Name
         and set v = 
@@ -141,6 +151,20 @@ type Party
             if value <> partyData.ProdLog then
                 partyData <- { partyData with ProdLog =  value }
                 x.RaisePropertyChanged "ProdLog"
+
+    member x.UloadMin
+        with get() = partyData.UloadMin
+        and set value =
+            if value <> partyData.UloadMin then
+                partyData <- { partyData with UloadMin =  value }
+                x.RaisePropertyChanged "UloadMin"
+
+    member x.UloadMax
+        with get() = partyData.UloadMax
+        and set value =
+            if value <> partyData.UloadMax then
+                partyData <- { partyData with UloadMax =  value }
+                x.RaisePropertyChanged "UloadMax"
     
 [<AutoOpen>]
 module private RunInfoHelpers =

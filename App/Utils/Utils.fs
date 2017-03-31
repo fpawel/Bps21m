@@ -188,6 +188,13 @@ module List =
             window [] m xs
             |> List.rev
 
+    // -- | Auxiliary recursive drop function
+    let rec drop n = function
+        | xs when n = 0 -> xs
+        | [] -> []
+        | _ :: xs -> drop (n-1) xs 
+
+
 type Double with
     static member toNullable (x:float) =        
         if Double.IsNaN(x) then None else Some x

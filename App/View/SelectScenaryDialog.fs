@@ -59,8 +59,7 @@ let showSelectScenaryDialog : Button -> unit =
                 Dlg.Content = panTv 
                 Dlg.Title = "Выбрать сценарий"}
             getOperation
-            ( fun operation ->
-                Thread2.scenary.Set operation )
+            Thread2.scenary.Set
 
     let validate() = 
         match getOperation() with

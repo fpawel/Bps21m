@@ -5,6 +5,8 @@ open Comport
 
 module CRC16 = 
 
+    open System
+
     let private auchCRCHi = 
         [   0x00uy; 0xC1uy; 0x81uy; 0x40uy; 0x01uy; 0xC0uy; 0x80uy; 0x41uy; 0x01uy; 0xC0uy; 0x80uy; 0x41uy; 0x00uy; 0xC1uy; 0x81uy;
             0x40uy; 0x01uy; 0xC0uy; 0x80uy; 0x41uy; 0x00uy; 0xC1uy; 0x81uy; 0x40uy; 0x00uy; 0xC1uy; 0x81uy; 0x40uy; 0x01uy; 0xC0uy;
@@ -59,6 +61,15 @@ module CRC16 =
         [|  yield! bytes 
             yield byte(u >>> 8)
             yield  byte u  |]
+
+    let parse (s:string) =
+        s.Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
+        |> Array.map(fun x -> 
+            Convert.ToByte(x, 16) )
+        |> get 
+
+    //parse "21 04 31 00 01 57 66" = 0xb998us
+    //parse "21 03 20 10 10 61 9F 51" = 0x8b6eus
 
 type Request = {
     addy : byte

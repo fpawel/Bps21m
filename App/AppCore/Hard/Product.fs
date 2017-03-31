@@ -15,9 +15,11 @@ let readCurrent addy  =
 
 // тип срабатывания порога
 type PorogTriggerType = 
-    | PorogInc
-    | PorogDec
-    static member values = [ PorogInc; PorogDec]
+    | BlockInc
+    | BlockDec
+    | NonblockInc
+    | NonblockDec
+    static member values = [ BlockInc; BlockDec; NonblockInc; NonblockDec]
 
 type NPorog= 
     | NPorog1
@@ -51,7 +53,7 @@ let readStatus n =
     |> Result.bind(fun bytes ->
         match bytes with 
         | [ ByteStatus status ;_; Byte.Bits(p3,_,_,_,_,_,_,_); Byte.Bits(p1,_,_,_,p2,_,_,_)]  ->
-            Ok (status, p1, p2, p3, bytesToStr bytes)
+            Ok (status, p1, p2, p3)
         | BytesToStr s -> Err ( sprintf "неожиданный ответ %A" s) )
 
 
@@ -62,23 +64,20 @@ type Cmd =
     | SetPorog of NPorog * PorogTriggerType
     | SetTuneMode of ScalePoint
     | Tune of ScalePoint 
-    static member values = 
-        [   Adjust ScaleBeg
-            Adjust ScaleEnd
-            SetBoudRate
-            SetPorog (NPorog1, PorogInc)
-            SetPorog (NPorog1, PorogDec)
-            SetPorog (NPorog2, PorogInc)
-            SetPorog (NPorog2, PorogDec)
-            SetPorog (NPorog3, PorogInc)
-            SetPorog (NPorog3, PorogDec)
-            SetTuneMode ScaleBeg
-            SetTuneMode ScaleEnd
-            Tune ScaleBeg
-            Tune ScaleEnd
+    | CustomCmd of int
+    static member values1 = 
+        [   yield Adjust ScaleBeg
+            yield Adjust ScaleEnd
+            yield SetBoudRate
+            yield SetTuneMode ScaleBeg
+            yield SetTuneMode ScaleEnd
+            yield Tune ScaleBeg
+            yield Tune ScaleEnd
         ]
 
     static member context = function  
+        | CustomCmd code ->
+            code, sprintf "команда %X %X" (code >>> 8) code
         | SetAddr ->            0x3E00, "БПС: установка сетевого адреса"
         | SetBoudRate ->        0x3F00, "БПС: установка скорости обмена"
         | Adjust ScaleBeg ->       0x0100, "БПС: корректировка 4 мА"        
@@ -90,14 +89,16 @@ type Cmd =
         | SetPorog (th,tt) -> 
             let x,s1 = 
                 match tt with
-                | PorogInc -> 0, "повышение" 
-                | _ -> 1, "понижение"
+                | NonblockInc -> 0x0, "повышение, реле не блокируется" 
+                | NonblockDec -> 0x1, "понижение, реле не блокируется"
+                | BlockInc -> 0x10, "повышение, реле блокируется" 
+                | BlockDec -> 0x11, "понижение, реле блокируется"
             let y = 
                 match th with
-                | NPorog1 -> 3
-                | NPorog2 -> 4
-                | NPorog3 -> 10
-            (x <<< 8) + y, sprintf "БПС: установка порога %d на %s" (th.Order + 1) s1
+                | NPorog1 -> 0x10
+                | NPorog2 -> 0x11
+                | NPorog3 -> 0x12
+            (y <<< 8) + x, sprintf "БПС: установка порога %d на %s" (th.Order + 1) s1
 
     static member what = Cmd.context >> snd
     static member code = Cmd.context >> fst
@@ -115,4 +116,93 @@ type Cmd =
 
     static member Adjust20mA = 
         (Adjust ScaleEnd, 20m)
+
+let private (|Bytes2|) = 
+    List.map fst >> bytesToStr
+
+let private tryGetID m = 
+    match Map.tryFind 4uy m, Map.tryFind 5uy m  with 
+    | Some kind, Some serial -> Ok (kind,serial)
+    | None, Some _ -> 
+        sprintf "ObjectID 4 not found in %A" m |> Err 
+    | Some _, None -> 
+        sprintf "ObjectID 5 not found in %A" m |> Err 
+    | _ -> 
+        sprintf "ObjectIDs 4,5 not found in %A" m |> Err 
+
+let rec private parseID acc = function
+    | [] -> Ok acc
+    | (bp,_) :: (len_,nLen) :: xs  ->
+        let len = int len_
+        if len = 0 then 
+            sprintf "длина строки [%d] = 0, %A" nLen acc
+            |> Err
+        elif xs.Length < len then
+            sprintf "длина строки [%d] = %d больше длины среза [%d..] = %d, %A" 
+                nLen len (nLen+1) xs.Length acc
+            |> Err
+        else
+            let x =
+                Seq.take len xs
+                |> Seq.map fst
+                |> Seq.toArray
+                |> String.FromWindows1251Bytes
+            parseID ( (bp,x)::acc ) (List.drop len xs)
+    | Bytes2 str ->
+        sprintf "%s - не соответсвует образцу, %A" 
+            str acc
+        |> Err
+
+
+
+let readID addy =
+    // 03 2b 0e 02 03 crc crc
+    Mdbs.getResponse 
+        comportConfig 
+        {   addy = addy
+            cmd = 0x2Buy
+            data = [0x0Euy; 2uy; 3uy; ]
+            what  = "чтение идентификационных данных"}
+            (fun _ -> "")
+            (   List.drop 6 
+                >> List.mapi(fun n x -> x,n )
+                >> parseID []  
+                >> Result.map Map.ofList
+                >> Result.bind tryGetID )
+
+let setID addy kind serial =
+    let bytesKind = String.ToWindows1251Bytes kind
+    let bytesSerial = String.ToWindows1251Bytes serial
+    let data =
+        [   yield 4uy
+            yield byte bytesKind.Length 
+            yield! bytesKind
+            yield 5uy
+            yield byte bytesSerial.Length 
+            yield! bytesSerial ]
+    
+    if data.Length > 167 then 
+        sprintf 
+            "для записи идентификационных данных %A %A требуется %d байт, а доступно 167" 
+                kind serial data.Length
+        |> Err 
+    else
+        Mdbs.getResponse
+            comportConfig 
+            {   addy = addy
+                cmd = 0x42uy
+                data = 
+                    [   yield! 
+                            [   0uy
+                                0x2Buy
+                                0uy
+                                byte (data.Length / 2 + data.Length % 2)
+                                byte data.Length
+                            ]
+                        
+                        yield! data
+                    ]
+                what  = "запись идентификационных данных"}
+                (fun _ -> "")
+                (fun _ -> Ok () )
 

@@ -74,6 +74,8 @@ module Stend =
                 DI20 = 0x0Duy, 0x63uy
             }
 
+
+
 [<TypeConverter(typeof<ExpandableObjectConverter>)>]
 type ApplicatioConfig = 
     {   View : View.Config

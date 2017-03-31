@@ -71,8 +71,12 @@ let readCurrent n =
 let readTensionOpenCircuit n =
     read3 n 2 "напряжение линии питания датчика без нагрузки" 
 
-let readTensionLoad n =
-    read3 n 6 "напряжение линии питания датчика под нагрузкой" 
+let readTensionLoad n rLoad =
+    let reg = 
+        match rLoad with
+        | RLoadLine68 -> 6
+        | RLoadLine91 -> 8
+    read3 n reg (sprintf "напряжение линии питания датчика под нагрузкой %M Ом" rLoad.Value) 
 
 
 type Rele = 
@@ -140,7 +144,7 @@ let turnCurrentOff n =
    
 type Cmd = 
     | SetPower of PowerType * PowerState
-    | SetCurrent of Current
+    | SetCurrent of Bps21.Current
     | TurnCurrentOff
 
     member cmd.Perform n =
@@ -165,8 +169,17 @@ type Cmd =
     static member MainPowerOff = 
         SetPower(PowerMain, PowerOff)
 
+    static member ReservePowerOn = 
+        SetPower(PowerReserve, PowerOn)
+
+    static member ReservePowerOff = 
+        SetPower(PowerReserve, PowerOff)
+
     static member Set4mA = 
         (SetCurrent I4)
+
+    static member Set12mA = 
+        (SetCurrent I12)
 
     static member Set20mA = 
         (SetCurrent I20)

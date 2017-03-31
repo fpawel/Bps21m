@@ -10,6 +10,14 @@ open Bps21
 module private Helpers =
     let party = AppContent.party
 
+
+type RLoadLineConverter() = 
+    inherit  StringConverter()
+    override this.GetStandardValuesSupported _ = true
+    override this.GetStandardValuesExclusive _ = true
+    override this.GetStandardValues _ =         
+        TypeConverter.StandardValuesCollection [| RLoadLine68.What; RLoadLine91.What |]
+
 type AppConfigView() = 
     
     [<DisplayName("Исполнение")>]    
@@ -21,6 +29,15 @@ type AppConfigView() =
             party.ProductType <- v
             Thread2.scenary.Set PartyWorks.main
             Scenary.updateGridViewBinding()
+
+    [<DisplayName("Нагрузочный резистр")>]    
+    [<Description("Выбор резистра для проверки нагрузочной способности")>]
+    [<TypeConverter (typeof<RLoadLineConverter>) >]
+    member x.RLoadLine 
+        with get() = party.RLoadLine
+        and set v = 
+            party.RLoadLine <- v
+            
             
     [<DisplayName("Наименование")>]    
     [<Description("Наименование партии")>]
@@ -49,6 +66,21 @@ type AppConfigView() =
         with get() = config.TuneI20
         and set v = 
             config.TuneI20 <- v
+
+
+    [<DisplayName("Unmin")>]    
+    [<Description("Минимально допустимое напряжение линии, В")>]
+    member x.UloadMin
+        with get() = party.UloadMin
+        and set value =
+            party.UloadMin <- value
+
+    [<DisplayName("Unmax")>]    
+    [<Description("Максимально допустимое напряжение линии, В")>]
+    member x.UloadMax
+        with get() = party.UloadMax
+        and set value =
+            party.UloadMax <- value
 
     
 

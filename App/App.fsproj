@@ -136,7 +136,7 @@
     <None Include="src_select_phys_vars_viewmodel.fsx" />
     <None Include="src_viewmodels.fsx" />
     <None Include="src_kefs.fsx" />
-    <None Include="test_stend.fsx" />
+    <None Include="test_hard.fsx" />
     <None Include="App.config" />
     <Content Include="icon.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

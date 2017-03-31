@@ -38,6 +38,20 @@ type String with
     static member TryParseHexDecimalByte value =
         Byte.TryParse(value,  Globalization.NumberStyles.HexNumber, null )
 
+    static member ToWindows1251Bytes (str :string) = 
+        let srcEncoding = Text.Encoding.UTF8
+        let dstEncoding = Text.Encoding.GetEncoding("windows-1251")
+        let originalByteString = srcEncoding.GetBytes(str)
+        Text.Encoding.Convert(srcEncoding, dstEncoding, originalByteString)
+
+    static member FromWindows1251Bytes (originalBytes : byte []) = 
+        let dstEncoding = Text.Encoding.UTF8
+        let srcEncoding = Text.Encoding.GetEncoding("windows-1251")
+        let convertedBytes = 
+            Text.Encoding.Convert(srcEncoding, dstEncoding, originalBytes)
+        dstEncoding.GetString(convertedBytes)
+
+
 
 module Seq =
 
@@ -49,6 +63,7 @@ let intToHex len x =
     let x = sprintf "%X" x
     let n = String.length x
     (if n < len then String('0', len-n ) else "") + x
+
 
 let bytesToStrings bytes =      
     Seq.fold ( fun (acc,i) b ->

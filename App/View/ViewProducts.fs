@@ -24,6 +24,10 @@ module Columns =
 
     let isChecked = %% new CheckBoxColumn(DataPropertyName = "IsChecked", Width = 50)
     let addr = col "#" "Addr" 50
+    let kind = 
+        let x = col "Тип" "Kind" 50
+        x.ReadOnly <- true
+        x
     let serial = col "№" "Serial" 50
         
     let private col1 header dataprop width = 
@@ -46,7 +50,7 @@ module Columns =
     let conn = col1 "Связь" "Connection" 80
 
     let columns = 
-        [   isChecked; addr; serial
+        [   isChecked; addr; kind; serial
             conn
             blockStatus
             currProd

@@ -27,6 +27,7 @@ module private Helpers =
 
     type CmdStend = Hard.Stend.Cmd
     type Rele = Hard.Stend.Rele
+    type NPorog = Hard.Product.NPorog
     
 
 
@@ -36,17 +37,17 @@ type Bps21.ViewModel.Product with
         let! _ = x.ReadProductCurrent()
         let! _ = x.ReadStendCurrent()
         let! {Porog1 = p1; Porog2 = p2; Porog3 = p3} as a = x.ReadStendRele()
-        let! _,p1_,p2_,p3_,_  as b = x.ReadProductStatus()
+        let! _,p1_,p2_,p3_  as b = x.ReadProductStatus()
         if (p1,p2,p3) <> (p1_,p2_,p3_) then
             Logging.error "несоответствие данных порогов, прибор: %A, стенд: %A" b a       
         return! None }
 
 type Bps21.ViewModel.Party with
+
     member x.FailProductionIfConnError prodPt = 
         x.Products 
         |> Seq.filter(fun p ->  p.IsChecked )
-        |> Seq.iter(fun p -> p.FailProductionIfConnError prodPt)
-
+        |> Seq.iter(fun p -> p.FailProductionIfConnectionError prodPt)
 
     member x.DoForEachProduct f = 
         let xs1 = x.Products  |> Seq.filter(fun p ->  p.IsChecked )
@@ -60,6 +61,20 @@ type Bps21.ViewModel.Party with
                 if isKeepRunning() && p.IsChecked then 
                     f p
             Ok ()
+
+    member x.SetProduction (prodPoint:ProductionPoint) work = 
+        x.DoForEachProduct( fun (product:P) -> 
+            let r = 
+                work product
+                |> Option.map ( fun s -> false, s )
+                |> Option.withDefault (true, "успешно") 
+            if notKeepRunning() then () else
+            match product.Connection with
+            | Some (Err err) -> 
+                (false,err)
+            | _ -> r            
+            |> product.SetProduction prodPoint 
+        )
 
     member x.Interrogate() = Option.toResult <| maybeErr {
         let xs = x.Products |> Seq.filter(fun p -> p.IsChecked)
@@ -214,18 +229,26 @@ module private Helpers1 =
 
         scenary
 
-    let testProdPoint (prodPoint:ProductionPoint) testWork = 
-        prodPoint.What <|> fun () -> 
-            let r = testWork()
-            party.FailProductionIfConnError prodPoint
-            r
-
     let simpleTest x ok (s:string) = 
         if x then Ok ok else Err s
 
+    let test1 x s = simpleTest x () s
+
+    let testCurrentError what current nominal errorLimit =
+        let d = abs (current - nominal)
+        let errorLimit = abs errorLimit
+        test1 
+            (d < errorLimit) 
+            (sprintf "%s : %M мА. Должен быть %M ± %M" what current nominal errorLimit)
+
+    let testReleState (rele:Rele) (mustRele:Rele) = 
+        test1 
+            (rele = mustRele ) 
+            (sprintf "состояние контактов реле: %A. Должно быть: %A" rele mustRele)
+
     
 
-let adjust() = maybeErr {
+let adjust = Bps21.Adjust.What <|> fun () ->maybeErr {
     do! party.WriteStend CmdStend.Set4mA
     do! pause 1
     do! party.WriteProducts Cmd.Adjust4mA
@@ -235,14 +258,13 @@ let adjust() = maybeErr {
     do! party.WriteProducts Cmd.Adjust20mA
     do! pause 1
     let U_min,U_max = let h,_ = party.Party in h.ProductType.U1            
-    do! party.DoForEachProduct(fun p -> 
+    do! party.SetProduction Bps21.Adjust (fun p -> 
         maybeErr{
             let! U = p.ReadTensionOpen()
-            p.SetProduction 
-                Bps21.Adjust
-                (U >= U_min && U <= U_max)
-                (sprintf "контроль Uл %M...%M: %M" U_min U_max U)
-        } |> ignore
+            do! test1
+                    (U >= U_min && U <= U_max)
+                    (sprintf "контроль Uл %M...%M: %M" U_min U_max U)
+        } 
     )
 }
 
@@ -261,29 +283,69 @@ let testCurrent nominal (p:P) = result{
                     d stendCurrent productCurrent limit)
     }
 
-let rec tuneProduct (scalePoint:ScalePoint) startTime getTimeLimit (p:P) =  maybeErr{        
+
+let testTuneMode (p:P) = maybeErr{        
     let! rele = p.ReadStendRele()
     let a = rele.Status, rele.SpMode, rele.Failure
     let b = true, true,false
     if a <> b then
-        return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b else
-    let! currentValue = p.ReadStendCurrent()
-    let d = scalePoint.Current.Value - currentValue
+        return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b 
+    }
 
+let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{        
+    
     let tuneErrorLimit = 
         match scalePoint with
         | ScaleBeg -> appCfg.TuneI4
         | ScaleEnd -> appCfg.TuneI20
+        |> abs
+    let In = scalePoint.Current.Value      
+    
+    let mutable current = 0m
+    let readCurrent() = maybeErr{
+        let! a = product.ReadStendCurrent()
+        current <- a
+    }
 
-    if abs d < tuneErrorLimit then return! None else
-    do! p.WriteProduct ( Cmd.Tune scalePoint, d )
-    do! sleep 100
-    return!
-            
-        if DateTime.Now - startTime > getTimeLimit() then 
-            Some <| sprintf "Превышен лимит времени %A" (getTimeLimit()) 
-        else
-            tuneProduct scalePoint startTime  getTimeLimit p 
+    let isOK() = 
+        abs(current - In) < tuneErrorLimit
+
+    let mutable d = 50m
+    let tune() = maybeErr{        
+        if d > 999990m then 
+            d <- 999990m
+        elif d < -999990m then 
+            d <- -999990m
+        elif d = 0m then
+            d <- 50m
+        do! product.WriteProduct ( Cmd.Tune scalePoint, d )
+        do! sleep 100
+    }
+
+    do! readCurrent()
+    if isOK() then return! None else
+    let mutable I1 = current       
+    do! tune()    
+    do! readCurrent()
+    let mutable I2 = current    
+
+    let startTime = DateTime.Now
+    let testTimeout() = 
+        if DateTime.Now - startTime  > getTimeout() then
+            Some <| sprintf "Превышен лимит времени подстройки %A" (getTimeout()) 
+        else 
+            None 
+
+    while (not <| isOK()) do
+        do! testTimeout()        
+        do! testTuneMode product
+        let sign = if current > In then -1m else 1m
+        d <- sign * abs(  d * (In - I2) / (I2 - I1) )
+        do! tune()
+        do! readCurrent()
+        Logging.info "I=%M I1=%M I2=%M  d=%M " current I1 I2  d
+        I1 <- I2
+        I2 <- current
 }
 
 let tune scalePoint = 
@@ -295,9 +357,10 @@ let tune scalePoint =
             do! party.WriteProducts (Cmd.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 5
             do! party.DoForEachProduct( fun product -> 
-                match tuneProduct scalePoint DateTime.Now getTimeLimit product with
-                | None -> product.SetProduction prod true "ok" 
-                | Some err -> product.SetProduction prod false err )
+                
+                match tuneProduct product scalePoint  getTimeLimit  with
+                | None -> product.SetProduction prod (true,"успешно") 
+                | Some err -> product.SetProduction prod (false,err) )
             do! party.WriteProducts (Cmd.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 1
         }
@@ -305,35 +368,35 @@ let tune scalePoint =
         tuneResult
 
 let testAlarmFailure = 
-    let test x = simpleTest x ()
-    testProdPoint TestAlarmFailure <| fun () -> maybeErr{
+    
+    TestAlarmFailure.What <|> fun () -> maybeErr{
         do! party.WriteStend CmdStend.TurnCurrentOff
         do! pause 1
-        do! party.DoForEachProduct( fun product -> 
+        do! party.SetProduction  TestAlarmFailure ( fun product -> 
             maybeErr{
                 let! rele = product.ReadStendRele()
-                do! test 
+                do! test1 
                         (rele = Rele.failureMode) 
                         ( sprintf "%s, должно быть %s" rele.What Rele.failureMode.What )
                 let! current = product.ReadStendCurrent()
-                do! test
+                do! test1
                         (current <= 2m)
                         (sprintf "ток выхода %M мА, должен быть не более 2 мА" current )
-                let! (status,_,_,_,_) = product.ReadProductStatus()
-                do! test
+                let! (status,_,_,_) = product.ReadProductStatus()
+                do! test1
                         (status = Hard.Product.Failure)
                         (sprintf "статус %s, должен быть %s" status.What Hard.Product.Failure.What )
                 return ()
-                }
-            |> ignore  )
+                }  )
+        party.FailProductionIfConnError TestAlarmFailure
     }
 
 let testLoadCapacity = 
-    let test x = simpleTest x ()
-    testProdPoint LoadCapacity <| fun () -> maybeErr{
+    LoadCapacity.What <|> fun () -> maybeErr{
         do! party.WriteStend CmdStend.Set4mA
         do! pause 5
         // ... todo
+        party.FailProductionIfConnError LoadCapacity
     }
 
 let mainPowerOn = 
@@ -348,20 +411,132 @@ let setNetAddrs =
         do! party.WriteStend CmdStend.MainPowerOn
     }
 
-let setupPorogs p1 p2 p3 () = maybeErr{
-        for n,v in List.zip NPorog.values [p1; p2; p3] do
-            do! party.WriteProducts (Cmd.SetPorog(n, PorogInc), v)
+let setupPorogs (p1,p2,p3) = maybeErr{
+    for n,v in List.zip NPorog.values [p1; p2; p3] do
+        do! party.WriteProducts (Cmd.SetPorog(n, NonblockInc), v)
+}
+let testPorog nporog = 
+    
+    let porogValues, prodPoint, mustP1, mustP2, mustP3 = 
+        match nporog with
+        | NPorog1 -> (11.76m, 12.48m, 12.62m), TestPorog1, true, false, false
+        | NPorog2 -> (11.52m, 11.76m, 12.48m), TestPorog2, true, true, false
+        | NPorog3 -> (11.28m, 11.52m, 11.76m), TestPorog3, true, true, true
+
+    let mustRele : Rele = 
+        {   Status  = true
+            Failure = false
+            SpMode  = false
+            Porog1  = mustP1
+            Porog2  = mustP2
+            Porog3  = mustP3 }    
+    prodPoint.What <|> fun () -> maybeErr{
+        
+        do! party.WriteStend CmdStend.Set4mA
+        do! pause 2
+        do! setupPorogs porogValues
+        do! pause 1
+        do! party.WriteStend CmdStend.Set12mA
+        do! pause 2
+        do! party.SetProduction prodPoint ( fun product ->   
+            maybeErr{
+                let! rele = product.ReadStendRele()
+                do! testReleState rele mustRele
+                let! i = product.ReadStendCurrent()
+                do! testCurrentError "ток выхода, стенд" i 12m 0.024m 
+                let! ip = product.ReadProductCurrent()
+                do! testCurrentError "ток выхода, цифровой канал" i 12m 0.024m 
+                let! _,p1,p2,p3 = product.ReadProductStatus()
+                do! test1 
+                        ((p1,p2,p3) = (mustP1, mustP2, mustP3)) 
+                        (sprintf "признак срабатывания порогов (цифровой канал): %b,%b,%b. Должно быть: %b,%b,%b" 
+                            p1 p2 p3 mustP1 mustP2 mustP3) 
+                do! test1
+                        (rele.Porog1=mustP1)
+                        (sprintf "ПОРОГ 1: %b, должен быть: %b" rele.Porog1 mustP1) 
+                do! test1
+                        (rele.Porog2=mustP2)
+                        (sprintf "ПОРОГ 1: %b, должен быть: %b" rele.Porog2 mustP2) 
+                do! test1
+                        (rele.Porog3=mustP3)
+                        (sprintf "ПОРОГ 3: %b, должен быть: %b" rele.Porog3 mustP3) }
+        )    
     }
 
+let test4mA (product:P) = 
+    maybeErr{
+        let! i = product.ReadStendCurrent()
+        do! testCurrentError "ток выхода, стенд" i 4m 0.04m 
+        let! ip = product.ReadProductCurrent()
+        do! testCurrentError "ток выхода, цифровой канал" i 4m 0.04m 
+        let! rele = product.ReadStendRele()
+        do! testReleState rele 
+                {   Status  = true
+                    Failure = false
+                    SpMode  = false
+                    Porog1  = false
+                    Porog2  = false
+                    Porog3  = false }
+        }
+
+
+let testReservedPower = 
+    ReservedPower.What <|> fun () -> maybeErr{
+        do! party.WriteStend CmdStend.Set4mA    
+        do! pause 2
+        do! party.WriteStend CmdStend.ReservePowerOn
+        do! pause 2
+        do! party.WriteStend CmdStend.MainPowerOff
+        do! pause 2
+        do! party.DoForEachProduct ( test4mA >> ignore)
+        do! party.WriteStend CmdStend.MainPowerOn
+        do! pause 2
+        do! party.WriteStend CmdStend.ReservePowerOff
+        do! pause 2
+        do! party.SetProduction ReservedPower test4mA
+    }
+
+let writeIDs = 
+    "Запись серийных номеров" <|> fun () -> 
+        party.DoForEachProduct <| fun  p ->
+            maybeErr{
+                let d,_ = party.Party
+                p.Kind <- d.ProductType.What
+                let ax = p.Kind, p.Serial
+                do! p.WriteID()
+                let! bx = p.ReadID()
+                if bx <> ax then
+                    return!
+                        sprintf "записано %A, считано %A"  ax bx
+                        |> Err
+
+            } |> ignore
+        |> Result.someErr
+
+let readIDs = 
+    "Считывание серийных номеров" <|> fun () -> 
+        party.DoForEachProduct <| fun  p ->
+            p.ReadID() |> ignore
+        |> Result.someErr
+
 let main = 
+    let test x = simpleTest x ()
     "Настройка БПС-21М3" <||> [
         mainPowerOn
         setNetAddrs
-        testProdPoint Bps21.Adjust adjust
+        writeIDs
+        readIDs
+        adjust
         tune ScaleBeg
         tune ScaleEnd
         testLoadCapacity
-        testAlarmFailure        
+        testAlarmFailure
+        testPorog NPorog1
+        testPorog NPorog2
+        testPorog NPorog3
+        testReservedPower
+        "Установка порогов" <|> fun () -> 
+            setupPorogs (5.6m, 7.2m, 18.4m)             
     ] |> withСonfig
 
 let all = 
@@ -390,5 +565,4 @@ type Bps21.ViewModel.Party with
         sprintf "%s, %M" cmd.What value -->> fun () -> 
             party.WriteProducts (cmd,value)
 
-    member x.RunSetAddrs() = 
-        Thread2.run setNetAddrs
+    

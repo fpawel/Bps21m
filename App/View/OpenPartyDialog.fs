@@ -29,7 +29,10 @@ module private Helpers =
         node.BackColor <- Color.LightGray
         //node.NodeFont <- new Font( "Segue UI", 12.f, FontStyle.Bold )
 
-    let updateTreeView (treeview:TreeView) (nodes:ResizeArray<Node * TreeNode>) prodType serial month year = 
+    let updateTreeView 
+            (treeview:TreeView) 
+            (nodes:ResizeArray<Node * TreeNode>) 
+            prodType serial month year = 
         let mutable selectedNode : TreeNode = null     
         nodes.Clear() 
         treeview.Nodes.Clear()
@@ -158,8 +161,8 @@ module private Helpers =
                 let n = cbType.SelectedIndex - 1
                 if n>(-1) && n<ProductType.values.Length then Some ProductType.values.[n] else None
             let serial = 
-                let b,v = Int32.TryParse tbSerialNumber.Text
-                if b then Some v else None
+                let s = tbSerialNumber.Text
+                if String.IsNullOrEmpty s  then None  else Some s
             let month = 
                 let n = cbMonth.SelectedIndex
                 if n>0 && n<13 then Some n else None
