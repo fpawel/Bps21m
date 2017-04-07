@@ -91,6 +91,7 @@
     <Compile Include="AppCore\Hard\Product.fs" />
     <Compile Include="AppCore\Hard\Stend.fs" />
     <Compile Include="AppCore\Repository.fs" />
+    <Compile Include="AppCore\ReleInfo.fs" />
     <Compile Include="AppCore\Pasp.fs" />
     <Compile Include="ViewModels\ViewModel.fs" />
     <Compile Include="ViewModels\ProductViewModel.fs" />

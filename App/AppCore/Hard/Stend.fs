@@ -3,11 +3,11 @@
 open System
 open Bps21
 
+
 let comportConfig = AppConfig.config.Comport
     
 [<AutoOpen>]
-module private Helpers =     
-    
+module private Helpers =
     let getResponse n cmd data what =
         Mdbs.getResponse
             AppConfig.config.Comport
@@ -78,6 +78,22 @@ let readTensionLoad n rLoad =
         | RLoadLine91 -> 8
     read3 n reg (sprintf "напряжение линии питания датчика под нагрузкой %M Ом" rLoad.Value) 
 
+let loadLine addr rLine = 
+    let code, what = 
+        match rLine with
+        | Some RLoadLine68 -> 
+            0x42, "подключить нагрузку 68 Ом"
+        | Some RLoadLine91 -> 
+            0x44, "подключить нагрузку 91 Ом"
+        | None -> 
+            0x46, "отключить нагрузку"
+    Mdbs.write16 
+        comportConfig 
+        (sprintf "СТЕНД %d: %s" addr what) 
+        (addrbyte addr) Mdbs.AnswerRequired 
+        code [|0uy; 0uy|]
+
+
 
 type Rele = 
     {   Status : bool
@@ -85,8 +101,8 @@ type Rele =
         SpMode : bool        
         Porog1 : bool
         Porog2 : bool
-        Porog3 : bool  }
-
+        Porog3 : bool  
+    }
     member x.What =
         let (~%%) a = if a then "замкнуто" else "разомкнуто" 
         sprintf """ СТАТУС:%s ОТКАЗ:%s СПЕЦ.РЕЖИМ:%s П1:%s П2:%s П3:%s""" 
@@ -96,14 +112,6 @@ type Rele =
             (%% x.Porog1)
             (%% x.Porog2)
             (%% x.Porog3)
-
-    static member failureMode =
-        {   Status  = true
-            Failure = true
-            SpMode  = false                        
-            Porog3  = false
-            Porog2  = false
-            Porog1  = false } 
 
 let readRele n = 
     Mdbs.read3 
@@ -122,7 +130,6 @@ let readRele n =
                 |> Ok
             | BytesToStr s -> 
                 Err <| sprintf "не верный формат ответа на запрос реле %s" s )
-  
 
 let setCurrent n current =    
     let b1,b2 = AppConfig.config.Stend.GetDI n current    
@@ -140,12 +147,12 @@ let turnCurrentOff n =
         (addrbyte n) 
         Mdbs.AnswerRequired 0x30 
         [|0uy; 0uy|]
-
    
 type Cmd = 
     | SetPower of PowerType * PowerState
     | SetCurrent of Bps21.Current
     | TurnCurrentOff
+    | LoadLine of RLoadLine option
 
     member cmd.Perform n =
         match cmd with
@@ -154,6 +161,8 @@ type Cmd =
             setPower powerType powerState n            
         | TurnCurrentOff ->
             turnCurrentOff n
+        | LoadLine r ->
+            loadLine n r
         
     member x.What = 
         match x with
@@ -161,6 +170,14 @@ type Cmd =
             whatDoPower powerState powerType
         | SetCurrent current -> sprintf "СТЕНД: установить ток %M мА" current.Value
         | TurnCurrentOff -> "СТЕНД: отключить ток" 
+        | LoadLine rLine ->
+            match rLine with
+            | Some RLoadLine68 -> 
+                "подключить нагрузку 68 Ом"
+            | Some RLoadLine91 -> 
+                "подключить нагрузку 91 Ом"
+            | None -> 
+                "отключить нагрузку"
         
 
     static member MainPowerOn = 
@@ -184,10 +201,22 @@ type Cmd =
     static member Set20mA = 
         (SetCurrent I20)
 
+    static member Load68 = 
+        (LoadLine <| Some RLoadLine68)
+
+    static member Load91 = 
+        (LoadLine <| Some RLoadLine91)
+
+    static member UnloadLine = 
+        (LoadLine None)
+
     static member values = 
         [   for pt in [PowerMain; PowerReserve] do     
                 for ps in [PowerOn; PowerOff] do 
                     yield SetPower(pt,ps)
             for v in [ I4; I12; I20] do
                 yield SetCurrent v
+            yield  LoadLine <| Some RLoadLine68
+            yield  LoadLine <| Some RLoadLine91
+            yield  LoadLine None
         ]

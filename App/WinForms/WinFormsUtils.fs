@@ -94,6 +94,39 @@ module GridView =
         g.DataSource <- null
         g.DataSource <- d
 
+    let withDisableSelection (x :DataGridView) =
+        x.SelectionChanged.Add <| fun _ ->
+            x.ClearSelection()
+        x
+
+    let withNoSortColumns (x :DataGridView) =
+        x.ColumnAdded.Add <| fun e ->
+            e.Column.SortMode <- DataGridViewColumnSortMode.NotSortable  
+        x
+
+    let newFlexible() = 
+        let x = 
+            new DataGridView (                 
+                AutoGenerateColumns = false, 
+                Dock = DockStyle.Fill,
+                RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.AutoSizeToAllHeaders,
+                AllowUserToResizeColumns = false,
+                AllowUserToResizeRows = false,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,                                
+                BorderStyle = BorderStyle.None, 
+                AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+                )
+        x.ColumnHeadersHeightSizeMode <- DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        x.DefaultCellStyle.WrapMode <- DataGridViewTriState.True 
+        let autoResizeRows _ =
+            x.AutoResizeRows DataGridViewAutoSizeRowsMode.AllCells
+        x.SizeChanged.Add autoResizeRows
+        x.DataBindingComplete.Add autoResizeRows
+        x.RowHeadersVisible <- false
+        x
+
 
 let isPropGridEditing (g:PropertyGrid) = 
     let gridView = 
@@ -180,5 +213,7 @@ let radioButtons<'a when 'a : comparison>
 let colorFromString x = ColorTranslator.FromHtml(x)
 let MidleAqua = colorFromString "#569CD6"
 let MidleGreen = colorFromString "#84BB96"
+
+
 
 

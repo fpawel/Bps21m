@@ -116,6 +116,8 @@ type Party
 
     member __.getProductType() = partyHeader.ProductType
 
+    
+
     member x.ProductType 
         with get() = partyHeader.ProductType.What
         and set v = 
@@ -128,14 +130,15 @@ type Party
                 x.RaisePropertyChanged "ProductType"
                 setMainWindowTitle()
 
-    member x.RLoadLine 
+    member __.RLoadLine = partyData.RLoadLine
+    member x.RLoadLineUI 
         with get() = partyData.RLoadLine.What
         and set str = 
             let v = RLoadLine.Parse str
             if v <> partyData.RLoadLine then                
                 partyData <- { partyData with RLoadLine = v}
+                x.RaisePropertyChanged "RLoadLineUI"
                 x.RaisePropertyChanged "RLoadLine"
-                setMainWindowTitle()
 
     member x.Name 
         with get() = partyHeader.Name

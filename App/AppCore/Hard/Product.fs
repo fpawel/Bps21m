@@ -89,10 +89,10 @@ type Cmd =
         | SetPorog (th,tt) -> 
             let x,s1 = 
                 match tt with
-                | NonblockInc -> 0x0, "повышение, реле не блокируется" 
-                | NonblockDec -> 0x1, "понижение, реле не блокируется"
-                | BlockInc -> 0x10, "повышение, реле блокируется" 
-                | BlockDec -> 0x11, "понижение, реле блокируется"
+                | NonblockInc -> 0x1, "повышение, реле не блокируется" 
+                | NonblockDec -> 0x0, "понижение, реле не блокируется"
+                | BlockInc -> 0x11, "повышение, реле блокируется" 
+                | BlockDec -> 0x10, "понижение, реле блокируется"
             let y = 
                 match th with
                 | NPorog1 -> 0x10

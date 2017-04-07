@@ -19,18 +19,16 @@ let private product ((h,d):Party.Content) (p:Product) =
     let trs = [   
         tr[
             td [%% "Заводской номер:"]
-            td [value'; %% string p.Serial ]
+            td [value'; %% p.Serial ]
         ]
-        tr[
-            td [%% "Дата изготовления:"]
-            td [value'; %% DateTime.Now.ToString("dd.MM.yyyy") ]
-        ]
+        
+
+
     ]
 
     [   div [ class' "header1"; %% "Паспорт"]
         div [ 
             class' "product-type"
-            %% "БПС-21М3"
             span [ 
                 class' "product-type-1"
                 %% t.What

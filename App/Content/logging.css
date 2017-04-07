@@ -33,3 +33,22 @@ body{
 .debug {
     color:grey;
 }
+
+
+table.table-bordered {
+    border-collapse: collapse;
+    margin-left: 20px;
+    color:black;
+}
+
+table.table-bordered, table.table-bordered th, table.table-bordered td {
+    border: 1px solid black;
+    text-align:left;
+}
+
+table.table-bordered th, table.table-bordered td {
+    padding-left:10px;
+    padding-right:10px;
+    padding-top:3px;
+    padding-bottom:3px;
+}

@@ -168,7 +168,7 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         with get () = p.Serial
         and set v = 
             if v <> p.Serial then
-                x.Product <- { p with Serial = v }
+                x.Product <- { p with Serial = v.Trim() }
 
     member x.Kind
         with get () = p.Kind

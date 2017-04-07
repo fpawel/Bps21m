@@ -87,6 +87,7 @@ type ProductionPoint =
         [   Adjust
             Tune ScaleBeg
             Tune ScaleEnd
+            LoadCapacity
             TestAlarmFailure 
             TestPorog1
             TestPorog2
@@ -122,7 +123,7 @@ type Product =
     static member serial x = x.Serial
 
     static member createNewId() = String.getUniqueKey 12
-    static member what x = sprintf "%s.%s.%d" x.Kind x.Serial x.Addr 
+    static member what x = sprintf "№%s #%d" x.Serial x.Addr 
 
     static member New addy = 
         let now = DateTime.Now

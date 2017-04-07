@@ -34,9 +34,9 @@ type AppConfigView() =
     [<Description("Выбор резистра для проверки нагрузочной способности")>]
     [<TypeConverter (typeof<RLoadLineConverter>) >]
     member x.RLoadLine 
-        with get() = party.RLoadLine
+        with get() = party.RLoadLineUI
         and set v = 
-            party.RLoadLine <- v
+            party.RLoadLineUI <- v
             
             
     [<DisplayName("Наименование")>]    

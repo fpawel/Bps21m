@@ -19,22 +19,20 @@ module private Helpers =
     type P = Bps21.ViewModel.Product
 
 module Columns =
-    let private col header dataprop width = 
-        %% new TextColumn(DataPropertyName = dataprop, HeaderText = header, Width = width)    
-
-    let isChecked = %% new CheckBoxColumn(DataPropertyName = "IsChecked", Width = 50)
-    let addr = col "#" "Addr" 50
-    let kind = 
-        let x = col "Тип" "Kind" 50
-        x.ReadOnly <- true
-        x
-    let serial = col "№" "Serial" 50
+    let private col header dataprop width readonly = 
+        let x = %% new TextColumn(DataPropertyName = dataprop, HeaderText = header, Width = width, 
+                                    ReadOnly = readonly )    
         
-    let private col1 header dataprop width = 
-        %% new TextColumn(DataPropertyName = dataprop, HeaderText = header, Width = width, ReadOnly = true)    
-
+        x
+        
+    let isChecked = %% new CheckBoxColumn(DataPropertyName = "IsChecked", Width = 50)
+    let addr = col "#" "Addr" 50 false
+    let kind = col "Тип" "Kind" 50 true
+    let serial = col "№" "Serial" 50 false
+        
+    
     let rele = 
-        let col1 header prop =  col1 header prop 50
+        let col1 header prop =  col header prop 50 true 
 
         [   col1 "СТ." "Status"
             col1 "СП.РЕЖИМ" "SpMode"
@@ -44,10 +42,10 @@ module Columns =
             col1 "П3" "Porog3"            
         ] 
 
-    let currProd = col1 "Iп" "ProductCurrent" 80
-    let blockStatus = col1 "СТАТУС" "ProductStatus" 80
-    let currStend = col1 "Iс" "StendCurrent" 80
-    let conn = col1 "Связь" "Connection" 80
+    let currProd = col "Iп" "ProductCurrent" 80 true
+    let blockStatus = col "СТАТУС" "ProductStatus" 80 true
+    let currStend = col "Iс" "StendCurrent" 80 true
+    let conn = col "Связь" "Connection" 80 true
 
     let columns = 
         [   isChecked; addr; kind; serial
@@ -106,6 +104,8 @@ let initialize =
 
     gridData.CellFormatting.Add <| fun e ->
         if e.ColumnIndex = 0 then () else
+        let cellTag = gridData.Columns.[e.ColumnIndex].Tag
+        if cellTag = null then () else
         let p = gridData.Columns.[e.ColumnIndex].Tag :?> P
         let row = gridData.Rows.[e.RowIndex]
         let cell = row.Cells.[e.ColumnIndex]
@@ -117,6 +117,39 @@ let initialize =
             | Some ( date, level, text ) -> 
                 cell.Style.BackColor <- Logging.backColor level
                 cell.Style.ForeColor <- Logging.foreColor level
-                e.Value <- sprintf "%A %s" date text
+                let strDate = date.ToString("dd.MM HH:mm")
+                e.Value <- 
+                    match level with 
+                    | Logging.Error ->  strDate + " ошибка" 
+                    | _ -> strDate
+
+    gridData.CellDoubleClick.Add <| fun e ->
+        if e.ColumnIndex = 0 then () else
+        let p = gridData.Columns.[e.ColumnIndex].Tag :?> P
+        let row = gridData.Rows.[e.RowIndex]
+        let cell = row.Cells.[e.ColumnIndex]
+        match MainWindow.ProdPointRow.tryGetProdPointOfRow row with
+        | None -> ()
+        | Some prodPt ->            
+            match Map.tryFind prodPt p.Product.Production with
+            | None -> ()
+            | Some x ->
+                let pan = new Panel(Width = 400, Height = 600 , BorderStyle = BorderStyle.FixedSingle)
+                let webb = MainWindow.newLogginWebbrowser pan
+                let _ = new Panel(Parent = pan, Dock = DockStyle.Left, Width = 5)
+                let _ = new Panel(Parent = pan, Dock = DockStyle.Right, Width = 5)
+                let _ = new Panel(Parent = pan, Dock = DockStyle.Top, Height = 5)
+                let _ = new Panel(Parent = pan, Dock = DockStyle.Bottom, Height = 5)
+                let popup = new MyWinForms.Popup(pan)
+                
+                LoggingHtml.set webb (sprintf "%s, %s" p.What prodPt.What) [x]
+
+                let r = gridData.GetCellDisplayRectangle(e.ColumnIndex, e.RowIndex, false)
+                (r.X + gridData.Left, r.Y + gridData.Top + row.Height)
+                |> Point
+                |> gridData.PointToScreen
+                |> popup.Show
+
+                
 
     fun () -> ()

@@ -7,13 +7,14 @@ type H =
     | Tag of string
     | Text of string
 
-
-let (<!) attr value = { RootLabel = Attr (attr,value); SubForest = [] }  
+let attribute attr value = { RootLabel = Attr (attr,value); SubForest = [] }  
+let (<!)  = attribute
 
 let (<<<) x items = { RootLabel = x; SubForest = items }
 let (<==) (tag) items = Tag tag <<< items
 
-let (~%%) s = { RootLabel = Text s; SubForest = [] }
+let text s = { RootLabel = Text s; SubForest = [] }
+let (~%%) = text
 
 
 [<AutoOpen>]
@@ -29,6 +30,7 @@ let class' x = "class" <! x
 let colspan n = "colspan" <! sprintf "%d" n
 let rowspan n = "rowspan" <! sprintf "%d" n
 let valign s = "valign" <! s
+let style x = "style" <! x
 
 
 let script x = tag "script" [ "type" <! "text/javascript"; %% x]

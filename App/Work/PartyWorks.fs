@@ -244,7 +244,7 @@ module private Helpers1 =
     let testReleState (rele:Rele) (mustRele:Rele) = 
         test1 
             (rele = mustRele ) 
-            (sprintf "состояние контактов реле: %A. Должно быть: %A" rele mustRele)
+            ( ReleInfo.diffHtml rele mustRele)
 
     
 
@@ -369,6 +369,14 @@ let tune scalePoint =
 
 let testAlarmFailure = 
     
+    let mustRele : Rele =
+        {   Status  = true
+            Failure = true
+            SpMode  = false                        
+            Porog3  = false
+            Porog2  = false
+            Porog1  = false } 
+    
     TestAlarmFailure.What <|> fun () -> maybeErr{
         do! party.WriteStend CmdStend.TurnCurrentOff
         do! pause 1
@@ -376,8 +384,8 @@ let testAlarmFailure =
             maybeErr{
                 let! rele = product.ReadStendRele()
                 do! test1 
-                        (rele = Rele.failureMode) 
-                        ( sprintf "%s, должно быть %s" rele.What Rele.failureMode.What )
+                        (rele = mustRele) 
+                        ( ReleInfo.diffHtml rele mustRele )
                 let! current = product.ReadStendCurrent()
                 do! test1
                         (current <= 2m)
@@ -392,10 +400,44 @@ let testAlarmFailure =
     }
 
 let testLoadCapacity = 
-    LoadCapacity.What <|> fun () -> maybeErr{
+    let mustRele : Rele = 
+        {   Status  = true
+            Failure = false
+            SpMode  = false
+            Porog1  = false
+            Porog2  = false
+            Porog3  = false }  
+    "Проверка нагрузочной способности" <|> fun () -> maybeErr{
         do! party.WriteStend CmdStend.Set4mA
         do! pause 5
-        // ... todo
+        // подключить нагрузку
+        do! Some party.RLoadLine
+            |> CmdStend.LoadLine
+            |> party.WriteStend 
+        do! pause 5
+
+        do! party.SetProduction Bps21.LoadCapacity (fun product -> 
+            maybeErr{
+                
+                let! rele = product.ReadStendRele()
+                do! testReleState rele mustRele
+                let! i = product.ReadStendCurrent()
+                do! testCurrentError "ток выхода, стенд" i 4m 0.04m 
+
+                let! i = product.ReadProductCurrent()
+                do! testCurrentError "ток выхода, цифровой канал" i 4m 0.04m 
+
+                let! U = product.ReadTensionOpen()
+                do! test1
+                        (U >= party.UloadMin && U <= party.UloadMax)
+                        (sprintf "контроль Uл %M...%M: %M" party.UloadMin party.UloadMax U)                
+            } 
+        )
+        
+        // отключить нагрузку
+        do! party.WriteStend CmdStend.UnloadLine
+        do! pause 5
+
         party.FailProductionIfConnError LoadCapacity
     }
 

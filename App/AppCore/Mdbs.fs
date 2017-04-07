@@ -177,9 +177,13 @@ let write16 port what addy answerDemand firstRegister dt  =
             what  = what }        
         
     if addy=0uy || answerDemand = AnswerNotRequired then sendBroadcast port request else
+        let mustAnswer = Array.toList dx.[0..3]
         getResponse port request (fun x -> "")  <| function
-            |  [ x0; x1; x2; x3 ] as xs when xs = Array.toList dx.[0..3]  -> Ok ()
-            | BytesToStr s -> Err (sprintf "Неверный формат ответа %A" s)
+            |  [ x0; x1; x2; x3 ] as xs when xs = mustAnswer  -> Ok ()
+            | BytesToStr s ->
+                bytesToStr mustAnswer
+                |> sprintf "Неверный формат ответа %A, должно быть %s" s 
+                |> Err 
         
 
 let read3<'a> port what addy registerNumber registersCount formatResult parse : Result<'a, string>=

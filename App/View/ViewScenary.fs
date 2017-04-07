@@ -104,10 +104,6 @@ let initialize =
             | _ -> ()
         | _ -> ()
 
-    gridScenary.Columns.AddRange            
-        [|  %% new TextColumn(DataPropertyName = "Name", HeaderText = "Операция")
-            %% new TextColumn(DataPropertyName = "Delaytime", HeaderText = "Задержка") 
-            %% new TextColumn(DataPropertyName = "Status", HeaderText = "Статус") |]
     gridScenary.CellFormatting.Add <| fun e ->
         let row = gridScenary.Rows.[e.RowIndex]
         let col = gridScenary.Columns.[e.ColumnIndex]        

@@ -194,6 +194,8 @@ module List =
         | [] -> []
         | _ :: xs -> drop (n-1) xs 
 
+    let singleton x = [x]
+
 
 type Double with
     static member toNullable (x:float) =        

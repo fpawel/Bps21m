@@ -114,68 +114,89 @@ type Tabsheet with
             x.BottomTab.Visible <- v
             x.RightTab.Visible <- v)
 
-let webbJournal =    
-    let x =  
-        new WebBrowser(Parent = TabsheetScenary.RightTab, BackColor = TabsheetScenary.RightTab.BackColor, 
-                       Dock = DockStyle.Fill, AllowNavigation = false, Url = null,
-                       IsWebBrowserContextMenuEnabled = false, AllowWebBrowserDrop = false )
-    x.DocumentCompleted.Add <| fun _ ->
-        x.AllowNavigation <- false
-        if  x.Document <> null && x.Document.Body <> null then 
-            x.Document.Body.ScrollIntoView(false)
+let newLogginWebbrowser parent = 
+    let webb =  
+        new WebBrowser(Parent = parent, BackColor = TabsheetScenary.RightTab.BackColor, 
+                        Dock = DockStyle.Fill, AllowNavigation = true, Url = null,
+                        IsWebBrowserContextMenuEnabled = false, 
+                        AllowWebBrowserDrop = false )
+    webb.DocumentCompleted.Add <| fun _ ->
+        webb.AllowNavigation <- false
+        if  webb.Document <> null && webb.Document.Body <> null then 
+            webb.Document.Body.ScrollIntoView(false)
+    webb
+
+let webbJournal = newLogginWebbrowser TabsheetScenary.RightTab
+
+let newGridView parent name = 
+    let x = 
+        GridView.newFlexible() 
+        |> GridView.withNoSortColumns
+    x.Parent <- parent
+    x.Name <- name
+    x.BackgroundColor <- TabsheetScenary.RightTab.BackColor    
     x
 
 let gridScenary = 
     let splt = new Splitter(Parent = TabsheetScenary.RightTab, Dock = DockStyle.Left, Width = 3, BackColor = Color.LightGray)
-    let x = 
-        new DataGridView( Parent = TabsheetScenary.RightTab, AutoGenerateColumns = false, 
-                            Name = "ScenaryGridView", 
-                            Dock = DockStyle.Left, 
-                            Width = AppConfig.config.View.ScnDetailTextSplitterDistance,
-                            MinimumSize = Size(200,0), MaximumSize = Size(1000,0),
-                            ColumnHeadersHeight = 40, 
-                            //DataSource = Thread2.operations, 
-                            RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing,
-                            RowHeadersWidth = 30,
-                            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
-                            AllowUserToResizeRows = false,
-                            BorderStyle = BorderStyle.None, BackgroundColor = TabsheetScenary.RightTab.BackColor  )
+    
+    let pan = new Panel (Parent = TabsheetScenary.RightTab, Dock = DockStyle.Left,
+                            MinimumSize = Size(300,0), MaximumSize = Size(1000,0),
+                            Width = AppConfig.config.View.ScnDetailTextSplitterDistance)
+    let x = newGridView pan "ScenaryGridView"
+//        new DataGridView( Parent = pan, AutoGenerateColumns = false, 
+//                            Name = "ScenaryGridView", 
+//                            Dock = DockStyle.Fill, 
+//                            Width = AppConfig.config.View.ScnDetailTextSplitterDistance,
+//                            ColumnHeadersHeight = 40, 
+//                            RowHeadersWidth = 30,
+//                            
+//                            AllowUserToResizeColumns = false,
+//                            AllowUserToResizeRows = false,
+//                            AllowUserToAddRows = false,
+//                            AllowUserToDeleteRows = false,   
+//                            
+//                            RowHeadersVisible = false  ,
+//
+//                            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
+//                            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+//
+//                            BorderStyle = BorderStyle.None, 
+//                            BackgroundColor = TabsheetScenary.RightTab.BackColor  )
+//    x.ColumnHeadersHeightSizeMode <- DataGridViewColumnHeadersHeightSizeMode.AutoSize
+//    x.DefaultCellStyle.WrapMode <- DataGridViewTriState.True 
+//    let autoResizeRows _ =
+//        x.AutoResizeRows()
+//    x.SizeChanged.Add autoResizeRows
+//    x.DataBindingComplete.Add autoResizeRows
+
     form.FormClosing.Add <| fun _ ->
-        AppConfig.config.View.ScnDetailTextSplitterDistance <- x.Width
+        AppConfig.config.View.ScnDetailTextSplitterDistance <- pan.Width
+
+    x.Columns.AddRange            
+        [|  %% new TextColumn(DataPropertyName = "Name", HeaderText = "Операция", 
+                               AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill)
+            %% new TextColumn(DataPropertyName = "Delaytime", HeaderText = "Задержка", 
+                                AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells) 
+            %% new TextColumn(DataPropertyName = "Status", HeaderText = "Статус", 
+                                AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells) |]
+    
     x
 
+
+
 let gridProducts = 
-    new DataGridView (                 
-            AutoGenerateColumns = false, 
-            Dock = DockStyle.Fill,
-            BackgroundColor = TabsheetScenary.RightTab.BackColor,
-            Name = "PartyDataGrid",
-            ColumnHeadersHeight = 40, //DataSource = party.Products, 
-            Parent = TabsheetParty.RightTab,
-            RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing,
-            RowHeadersWidth = 30,
-            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
-            AllowUserToResizeRows = false,
-            AllowUserToAddRows = false,
-            AllowUserToDeleteRows = false,                                
-            BorderStyle = BorderStyle.None  )
+    newGridView TabsheetParty.RightTab "PartyDataGrid"
+    |> GridView.withDisableSelection
+    
 
 let gridData, private gridDataRows =  
     let x = 
-        new DataGridView( Parent = TabsheetData.RightTab,  
-                        AutoGenerateColumns = false, 
-                        Dock = DockStyle.Fill,
-                        BackgroundColor = form.BackColor,
-                        Name = "GridData",
-                        ColumnHeadersHeight = 40, 
-                        RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing,
-                        RowHeadersWidth = 30,
-                        AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
-                        AllowUserToResizeRows = false,
-                        AllowUserToAddRows = false,
-                        AllowUserToDeleteRows = false,                                
-                        BorderStyle = BorderStyle.None  )
-    x.Columns.Add( new TextColumn( ReadOnly = true, HeaderText = "Наименование" ) ) |> ignore
+        newGridView TabsheetData.RightTab "GridData"
+        |> GridView.withDisableSelection
+    x.ReadOnly <- true
+        
+    x.Columns.Add( new TextColumn( HeaderText = "Наименование", MinimumWidth = 100 ) ) |> ignore
     let xs = 
         Bps21.ProductionPoint.values |> List.map(fun pt -> 
             x.Rows.Add() |> ignore
