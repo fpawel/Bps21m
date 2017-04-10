@@ -5,9 +5,7 @@
 #load "Utils/DateTimeUtils.fs"
 #load "Utils/Logging.fs"
 #load "Utils/Utils.fs"
-#load "Bps21/Coef.fs"
-#load "Bps21/ProductType.fs"
-#load "Bps21/Bps21.fs"
+#load "AppCore/Bps21m.fs"
 
 open System
 

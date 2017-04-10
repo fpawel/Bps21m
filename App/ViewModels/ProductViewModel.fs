@@ -16,7 +16,7 @@ module private ViewModelProductHelpers =
         | _ -> ""
 
     let fmtDecOpt = Option.map Decimal.toStr6 >> Option.withDefault ""
-    type Col = System.Windows.Forms.DataGridViewTextBoxColumn
+    
     
 
 type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit -> RLoadLine) =
@@ -30,24 +30,11 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
     let mutable productStatus : Hard.Product.Status option = None
     let mutable rele : Hard.Stend.Rele option = None
     
-    let productionChangedEvent = Event<Product * ProductionPoint * Logging.Line >()
-
-    let prodPointsColumn = 
-        let col = new Col(HeaderText = Bps21.Product.what p)
-        MainWindow.gridData.Columns.Add(col) |> ignore
-        col
+    
+    let getProd pt = Map.tryFind pt p.Production
 
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
-
-    [<CLIEvent>]
-    member private x.OnProductionChanged = productionChangedEvent.Publish
-
-    member private x.ForceUpdateProdPoint pt = 
-        let row = MainWindow.ProdPointRow.getRowOfProdPoint pt
-        let colIndex = prodPointsColumn.Index
-        let cell = row.Cells.[colIndex]
-        row.Cells.[colIndex].Value <- Map.tryFind pt p.Production 
 
     member x.WriteProduct (cmd:Hard.Product.Cmd, value) =
         let r = cmd.Perform x.Addr Mdbs.AnswerRequired value
@@ -153,8 +140,7 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         and set v = 
             if v <> p.IsChecked then
                 p <- { p with IsChecked = v}
-                x.RaisePropertyChanged "IsChecked"
-                prodPointsColumn.Visible <- v
+                x.RaisePropertyChanged "IsChecked"                
                 
     member x.Addr
         with get () = p.Addr          
@@ -191,14 +177,20 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
     member x.Failure = rele |> Option.map( fun a -> a.Failure )     
     member x.Product 
         with get () = p
-        and set other =
-            if p = other then () else
-            p <- other
+        and set n =
+            if p = n then () else
+            p <- n
             x.RaisePropertyChanged "Product"            
-            x.RaisePropertyChanged "Serial"
-            x.RaisePropertyChanged "Kind"
-            x.RaisePropertyChanged "What"
-            prodPointsColumn.HeaderText <- x.What
+            if p.Serial <> n.Serial then
+                x.RaisePropertyChanged "Serial"
+            if p.Kind <> n.Kind then
+                x.RaisePropertyChanged "Kind"
+            if p.What <> n.What then
+                x.RaisePropertyChanged "What"                
+
+            for pt in Bps21.ProductionPoint.values do
+                if p.Production.TryFind pt <> n.Production.TryFind pt then
+                    x.RaisePropertyChanged pt.Property 
 
     member x.What = P.what p
 
@@ -213,21 +205,17 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         let logLine = DateTime.Now,level,text
         if Map.tryFind pt prod <> Some logLine then
             p <- { p with Production = Map.add pt logLine prod }
-            productionChangedEvent.Trigger(x,pt,logLine)
             Logging.write level "%s: %s, %s" x.What pt.What text
-
-    member private x.ProdPointColumn = prodPointsColumn
-
-    member x.Remove() = 
-        MainWindow.gridData.Columns.Remove x.ProdPointColumn
+            x.RaisePropertyChanged pt.Property 
 
     static member New productType rloadLine p  = 
-        let x = Product(p, productType, rloadLine )     
-        x.ProdPointColumn.Tag <- x
-        for pt in ProductionPoint.values do
-            x.ForceUpdateProdPoint pt
-        x.OnProductionChanged.Add(fun (_, pt, _) -> 
-            x.ForceUpdateProdPoint pt
-            )
-        x
+        Product(p, productType, rloadLine )     
+        
 
+    member x.ProdPtAdjust = getProd Adjust 
+    member x.ProdPtLoadCapacity = getProd LoadCapacity 
+    member x.ProdPtTestAlarmFailure = getProd TestAlarmFailure 
+    member x.ProdPtTestPorog1 = getProd TestPorog1 
+    member x.ProdPtTestPorog2 = getProd TestPorog2 
+    member x.ProdPtTestPorog3 = getProd TestPorog3 
+    member x.ProdPtReservedPower = getProd ReservedPower

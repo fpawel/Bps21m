@@ -86,7 +86,7 @@ module GridView =
     let addCol<'a when 'a :> C > (cols:Cols) (col:'a)  =
         cols.Add col |> ignore
 
-    let addCols<'a when 'a :> C > (xs : 'a seq) (cols:Cols) =
+    let addCols<'a when 'a :> C > (cols:Cols) (xs : 'a seq)  =
         xs |> Seq.iter ( cols.Add >> ignore)
 
     let updateBinding (g:G) = 

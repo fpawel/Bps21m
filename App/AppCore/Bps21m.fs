@@ -105,7 +105,10 @@ type ProductionPoint =
         | TestPorog3 -> "ПОРОГ 3"
         | ReservedPower -> "Резервное питание"
 
-    
+    member x.Property = 
+        match x with
+        | Tune i -> sprintf "ProdPtTune%A" i.Current.Value
+        | x -> sprintf "ProdPt%A" x
 
 type Id = string
 

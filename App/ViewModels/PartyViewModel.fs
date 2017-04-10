@@ -103,7 +103,7 @@ type Party
         let r = products.Remove( product )
         if not r then            
             failwith "Bps21.ViewModel.Party.DeleteProduct : missing element"
-        product.Remove()
+        
         
     member x.HasOneCheckedProduct() =
         products

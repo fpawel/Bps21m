@@ -102,17 +102,15 @@ let initialize =
             e.Value <- ""
 
 
-    gridData.CellFormatting.Add <| fun e ->
-        if e.ColumnIndex = 0 then () else
-        let cellTag = gridData.Columns.[e.ColumnIndex].Tag
-        if cellTag = null then () else
-        let p = gridData.Columns.[e.ColumnIndex].Tag :?> P
-        let row = gridData.Rows.[e.RowIndex]
+    gridData.DataSource <- party.Products
+    gridData.CellFormatting.Add <| fun e ->        
+        let product = getProductOfRow e.RowIndex
+        let column = gridProducts.Columns.[e.ColumnIndex]        
+        let row = gridProducts.Rows.[e.RowIndex]        
         let cell = row.Cells.[e.ColumnIndex]
-        match MainWindow.ProdPointRow.tryGetProdPointOfRow row with
-        | None -> ()
-        | Some prodPt ->            
-            match p.Product.Production.TryFind prodPt with
+        match e.Value with
+        | :? Option<Logging.Line> as p  -> 
+            match p with
             | None -> ()
             | Some ( date, level, text ) -> 
                 cell.Style.BackColor <- Logging.backColor level
@@ -123,17 +121,20 @@ let initialize =
                     | Logging.Error ->  strDate + " ошибка" 
                     | _ -> strDate
 
+        | _ -> ()
+
     gridData.CellDoubleClick.Add <| fun e ->
-        if e.ColumnIndex = 0 then () else
-        let p = gridData.Columns.[e.ColumnIndex].Tag :?> P
-        let row = gridData.Rows.[e.RowIndex]
+        
+
+        let product = getProductOfRow e.RowIndex
+        let column = gridProducts.Columns.[e.ColumnIndex]        
+        let row = gridProducts.Rows.[e.RowIndex]        
         let cell = row.Cells.[e.ColumnIndex]
-        match MainWindow.ProdPointRow.tryGetProdPointOfRow row with
-        | None -> ()
-        | Some prodPt ->            
-            match Map.tryFind prodPt p.Product.Production with
+        match cell.Value with
+        | :? Option<Logging.Line> as p  -> 
+            match p with
             | None -> ()
-            | Some x ->
+            | Some ( ( date, level, text ) as prod )-> 
                 let pan = new Panel(Width = 400, Height = 600 , BorderStyle = BorderStyle.FixedSingle)
                 let webb = MainWindow.newLogginWebbrowser pan
                 let _ = new Panel(Parent = pan, Dock = DockStyle.Left, Width = 5)
@@ -142,7 +143,7 @@ let initialize =
                 let _ = new Panel(Parent = pan, Dock = DockStyle.Bottom, Height = 5)
                 let popup = new MyWinForms.Popup(pan)
                 
-                LoggingHtml.set webb (sprintf "%s, %s" p.What prodPt.What) [x]
+                LoggingHtml.set webb (sprintf "%s, %s" product.What column.HeaderText) [prod]
 
                 let r = gridData.GetCellDisplayRectangle(e.ColumnIndex, e.RowIndex, false)
                 (r.X + gridData.Left, r.Y + gridData.Top + row.Height)
@@ -150,6 +151,6 @@ let initialize =
                 |> gridData.PointToScreen
                 |> popup.Show
 
-                
+        | _ -> ()
 
     fun () -> ()

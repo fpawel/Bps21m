@@ -190,35 +190,18 @@ let gridProducts =
     |> GridView.withDisableSelection
     
 
-let gridData, private gridDataRows =  
+let gridData =  
     let x = 
         newGridView TabsheetData.RightTab "GridData"
         |> GridView.withDisableSelection
     x.ReadOnly <- true
+
+    ("Прибор", "What") ::  [   for pt in Bps21.ProductionPoint.values -> pt.What, pt.Property ]
+    |> List.map(fun (a,b) -> 
+         new TextColumn( HeaderText = a, DataPropertyName = b, AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells )  )
+    |> x.Columns.AddColumns
         
-    x.Columns.Add( new TextColumn( HeaderText = "Наименование", MinimumWidth = 100 ) ) |> ignore
-    let xs = 
-        Bps21.ProductionPoint.values |> List.map(fun pt -> 
-            x.Rows.Add() |> ignore
-            let row = x.Rows.[x.Rows.Count-1]
-            row.Tag <- pt
-            row.Cells.[0].Value <- pt.What
-            pt,row )   
-
-    x, xs
-
-module ProdPointRow =
-
-    let getRowOfProdPoint = 
-        let mxs = Map.ofList gridDataRows
-        fun pt ->
-            Map.find pt mxs
-
-    let tryGetProdPointOfRow = 
-        let mxs = 
-            gridDataRows |> List.map (fun (a,b) -> b.GetHashCode(),a) |> Map.ofList            
-        fun (row:DataGridViewRow) ->
-            Map.tryFind (row.GetHashCode()) mxs
+    x
 
 let productsToolsLayer = new Panel(Parent = TabsheetParty.BottomTab, Dock = DockStyle.Left, Width = 40 ) 
     
