@@ -196,9 +196,10 @@ let gridData =
         |> GridView.withDisableSelection
     x.ReadOnly <- true
 
-    ("Прибор", "What") ::  [   for pt in Bps21.ProductionPoint.values -> pt.What, pt.Property ]
-    |> List.map(fun (a,b) -> 
-         new TextColumn( HeaderText = a, DataPropertyName = b, AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells )  )
+    ("Прибор", "What", 50.F) ::  [   for pt in Bps21.ProductionPoint.values -> pt.What, pt.Property, 100.F ]
+    |> List.map(fun (a, b, n) -> 
+         new TextColumn( HeaderText = a, DataPropertyName = b, 
+            MinimumWidth = 50)  )
     |> x.Columns.AddColumns
         
     x
