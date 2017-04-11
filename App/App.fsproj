@@ -56,6 +56,7 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils\FsharpRuntime.fs" />
     <Compile Include="Utils\State.fs" />
     <Compile Include="Utils\StrUtils.fs" />
@@ -70,6 +71,7 @@
     <Compile Include="Utils\Runtime.fs" />
     <Compile Include="Utils\Bin.fs" />
     <Compile Include="Utils\Hex.fs" />
+    
     <Compile Include="WinForms\WinFormsControlUtils.fs" />
     <Compile Include="WinForms\WinFormsConverters.fs" />
     <Compile Include="WinForms\WinFormsUtils.fs" />

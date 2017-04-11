@@ -17,6 +17,18 @@ module private Helpers =
 
     let tooltip = new ToolTip(AutoPopDelay = 5000, InitialDelay = 1000,  ReshowDelay = 500, ShowAlways = true)
 
+let aboutForm = 
+    let x = new Widgets.AboutForm() 
+    x.LabelVersion.Text <-  
+        try
+            Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()
+        with _ -> 
+            ""
+    x.Deactivate.Add(fun _ -> 
+        x.Hide()
+        )
+    x
+
 let form =     
     let x = new Form(Font = new Font("Consolas", 12.f), WindowState = FormWindowState.Maximized )
     let path = IO.Path.Combine( IO.Path.ofExe, "icon.ico")
@@ -144,31 +156,6 @@ let gridScenary =
                             MinimumSize = Size(300,0), MaximumSize = Size(1000,0),
                             Width = AppConfig.config.View.ScnDetailTextSplitterDistance)
     let x = newGridView pan "ScenaryGridView"
-//        new DataGridView( Parent = pan, AutoGenerateColumns = false, 
-//                            Name = "ScenaryGridView", 
-//                            Dock = DockStyle.Fill, 
-//                            Width = AppConfig.config.View.ScnDetailTextSplitterDistance,
-//                            ColumnHeadersHeight = 40, 
-//                            RowHeadersWidth = 30,
-//                            
-//                            AllowUserToResizeColumns = false,
-//                            AllowUserToResizeRows = false,
-//                            AllowUserToAddRows = false,
-//                            AllowUserToDeleteRows = false,   
-//                            
-//                            RowHeadersVisible = false  ,
-//
-//                            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
-//                            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-//
-//                            BorderStyle = BorderStyle.None, 
-//                            BackgroundColor = TabsheetScenary.RightTab.BackColor  )
-//    x.ColumnHeadersHeightSizeMode <- DataGridViewColumnHeadersHeightSizeMode.AutoSize
-//    x.DefaultCellStyle.WrapMode <- DataGridViewTriState.True 
-//    let autoResizeRows _ =
-//        x.AutoResizeRows()
-//    x.SizeChanged.Add autoResizeRows
-//    x.DataBindingComplete.Add autoResizeRows
 
     form.FormClosing.Add <| fun _ ->
         AppConfig.config.View.ScnDetailTextSplitterDistance <- pan.Width
@@ -198,8 +185,7 @@ let gridData =
 
     ("Прибор", "What", 50.F) ::  [   for pt in Bps21.ProductionPoint.values -> pt.What, pt.Property, 100.F ]
     |> List.map(fun (a, b, n) -> 
-         new TextColumn( HeaderText = a, DataPropertyName = b, 
-            MinimumWidth = 50)  )
+         new TextColumn( HeaderText = a, DataPropertyName = b,  MinimumWidth = 50)  )
     |> x.Columns.AddColumns
         
     x
@@ -224,7 +210,7 @@ open AppConfig
 open AppConfig.View
 
 let initialize =
-    let get'grids() = 
+    let getGrids() = 
         form.enumControls
             (fun x -> 
                 if x.GetType()=  typeof<DataGridView>  then                     
@@ -233,7 +219,7 @@ let initialize =
             id
     form.FormClosing.Add <| fun _ -> 
         config.View.Grids <-
-            get'grids()
+            getGrids()
             |> Seq.map( fun g -> 
                 g.Name,
                     {   ColWidths = [for c in g.Columns -> c.Width]
@@ -250,7 +236,7 @@ let initialize =
             MessageBox.Show( error, "Ошибка файла конфигурации", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             |> ignore
         
-        for g in get'grids() do 
+        for g in getGrids() do 
             let dt = config.View.Grids.TryFind g.Name
             
             g.ColumnHeadersHeight <-
@@ -266,7 +252,16 @@ let initialize =
                     | _ -> 
                         let sz = TextRenderer.MeasureText( c.HeaderText, c.HeaderCell.Style.Font )
                         sz.Width + 10
-                c.Width <- max 50 w ))
+                c.Width <- max 50 w )
 
+        aboutForm.Hide()
+        aboutForm.FormBorderStyle <- FormBorderStyle.FixedDialog
+        aboutForm.ControlBox <- false
+        aboutForm.ShowInTaskbar <- false
+        aboutForm.ShowIcon <- true )
     form.Activated.AddHandler h    
+
+    aboutForm.Show()
+    aboutForm.Refresh()
+
     fun () -> ()

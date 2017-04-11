@@ -31,12 +31,12 @@ module private Helpers =
     let flip f a b = f b a
     
 
-    let create title = 
-        List.map record
-        >> List.concat
-        >> (flip List.append [ script js ] )
-        >> html5 css title    
-        >> Seq.toStr "\n" stringify
+let create title = 
+    List.map record
+    >> List.concat
+    >> (flip List.append [ script js ] )
+    >> html5 css title    
+    >> Seq.toStr "\n" stringify
 
 let set (ie:WebBrowser) title logging = 
     //IO.File.WriteAllText("report.html", create title logging)

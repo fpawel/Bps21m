@@ -20,7 +20,7 @@ module private Helpers =
 
 module Columns =
     let private col header dataprop width readonly = 
-        let x = %% new TextColumn(DataPropertyName = dataprop, HeaderText = header, Width = width, 
+        let x = %% new TextColumn(DataPropertyName = dataprop, HeaderText = header, MinimumWidth = width, 
                                     ReadOnly = readonly )    
         
         x
@@ -70,21 +70,23 @@ let initialize =
     gridProducts.DataSource <- party.Products
     gridProducts.Columns.CollectionChanged.Add(fun _ ->
         gridProducts.Columns.SetDisplayIndexByOrder()  )
-    let getProductOfRow rowIndex =
-        gridProducts.Rows.[rowIndex].DataBoundItem :?> P
+        
     gridProducts.CellFormatting.Add <| fun e ->
-        let product = getProductOfRow e.RowIndex
+        let product = gridProducts.Rows.[e.RowIndex].DataBoundItem :?> P 
         let column = gridProducts.Columns.[e.ColumnIndex]        
         let row = gridProducts.Rows.[e.RowIndex]        
         let cell = row.Cells.[e.ColumnIndex]
         let (~%%) = listContainsObj column
         if column === Columns.conn then
-            let text, fore, back =
+            let tooltip, text, fore, back =
                 match e.Value :?> Result<string,string> option with
-                | Some (Ok s) -> s, Color.Black, Color.White
-                | Some (Err s) -> s, Color.Red, Color.LightGray
-                | _ -> "", Color.Black, Color.White
-            e.Value <- text            
+                | Some (Ok s) -> s, "Ок", Color.Black, Color.White
+                | Some (Err s) -> s, "Ошибка", Color.Red, Color.LightGray
+                | _ -> "", "", Color.Black, Color.White
+            if not <| String.IsNullOrEmpty text then
+                e.Value <- text     
+            if not <| String.IsNullOrEmpty tooltip then
+                cell.ToolTipText <- tooltip      
             cell.Style.ForeColor <- fore
             cell.Style.BackColor <- back
         elif %% Columns.rele then   
@@ -103,10 +105,10 @@ let initialize =
 
 
     gridData.DataSource <- party.Products
-    gridData.CellFormatting.Add <| fun e ->        
-        let product = getProductOfRow e.RowIndex
-        let column = gridProducts.Columns.[e.ColumnIndex]        
-        let row = gridProducts.Rows.[e.RowIndex]        
+    gridData.CellFormatting.Add <| fun e -> 
+        let product = gridData.Rows.[e.RowIndex].DataBoundItem :?> P 
+        let column = gridData.Columns.[e.ColumnIndex]        
+        let row = gridData.Rows.[e.RowIndex]        
         let cell = row.Cells.[e.ColumnIndex]
         match e.Value with
         | :? Option<Logging.Line> as p  -> 
@@ -124,33 +126,38 @@ let initialize =
         | _ -> ()
 
     gridData.CellDoubleClick.Add <| fun e ->
-        
-
-        let product = getProductOfRow e.RowIndex
-        let column = gridProducts.Columns.[e.ColumnIndex]        
-        let row = gridProducts.Rows.[e.RowIndex]        
+        let product = gridData.Rows.[e.RowIndex].DataBoundItem :?> P 
+        let column = gridData.Columns.[e.ColumnIndex]        
+        let row = gridData.Rows.[e.RowIndex]        
         let cell = row.Cells.[e.ColumnIndex]
         match cell.Value with
         | :? Option<Logging.Line> as p  -> 
             match p with
             | None -> ()
             | Some ( ( date, level, text ) as prod )-> 
-                let pan = new Panel(Width = 400, Height = 600 , BorderStyle = BorderStyle.FixedSingle)
-                let webb = MainWindow.newLogginWebbrowser pan
+                let pan = new Panel(Width = 400, Height = 300 , BorderStyle = BorderStyle.FixedSingle)
+                let webb =  
+                    new WebBrowser(Parent = pan, BackColor = TabsheetScenary.RightTab.BackColor, 
+                                    Dock = DockStyle.Fill, AllowNavigation = true, Url = null,
+                                    IsWebBrowserContextMenuEnabled = false, 
+                                    AllowWebBrowserDrop = false )
+                webb.Navigate "about:blank"
+                webb.Document.Write String.Empty
+                webb.DocumentText <- 
+                    LoggingHtml.create 
+                        (sprintf "%s, %s" product.What column.HeaderText) 
+                        [prod]
+
                 let _ = new Panel(Parent = pan, Dock = DockStyle.Left, Width = 5)
                 let _ = new Panel(Parent = pan, Dock = DockStyle.Right, Width = 5)
                 let _ = new Panel(Parent = pan, Dock = DockStyle.Top, Height = 5)
                 let _ = new Panel(Parent = pan, Dock = DockStyle.Bottom, Height = 5)
-                let popup = new MyWinForms.Popup(pan)
+                let popup = new MyWinForms.Popup(pan)                
                 
-                LoggingHtml.set webb (sprintf "%s, %s" product.What column.HeaderText) [prod]
-
                 let r = gridData.GetCellDisplayRectangle(e.ColumnIndex, e.RowIndex, false)
                 (r.X + gridData.Left, r.Y + gridData.Top + row.Height)
                 |> Point
                 |> gridData.PointToScreen
                 |> popup.Show
-
         | _ -> ()
-
     fun () -> ()

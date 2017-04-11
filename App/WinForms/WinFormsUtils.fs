@@ -118,6 +118,7 @@ module GridView =
                 AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
                 )
+        
         x.ColumnHeadersHeightSizeMode <- DataGridViewColumnHeadersHeightSizeMode.AutoSize
         x.DefaultCellStyle.WrapMode <- DataGridViewTriState.True 
         let autoResizeRows _ =

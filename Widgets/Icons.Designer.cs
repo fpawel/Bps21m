@@ -71,6 +71,7 @@
             this.imageList1.Images.SetKeyName(31, "clean");
             this.imageList1.Images.SetKeyName(32, "list");
             this.imageList1.Images.SetKeyName(33, "testconn");
+            this.imageList1.Images.SetKeyName(34, "about");
             // 
             // Icons
             // 

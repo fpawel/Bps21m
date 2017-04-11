@@ -219,3 +219,6 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
     member x.ProdPtTestPorog2 = getProd TestPorog2 
     member x.ProdPtTestPorog3 = getProd TestPorog3 
     member x.ProdPtReservedPower = getProd ReservedPower
+
+    member x.ProdPttune4M = getProd (Tune ScaleBeg)
+    member x.ProdPttune20M = getProd (Tune ScaleEnd)
