@@ -3,7 +3,6 @@
 open System
 open System.Windows.Forms
 open System.Drawing
-open System.Collections.Generic
 
 open MainWindow
 open Bps21
@@ -25,7 +24,9 @@ module Columns =
         
         x
         
-    let isChecked = %% new CheckBoxColumn(DataPropertyName = "IsChecked", Width = 50)
+    let isChecked = 
+        %% new CheckBoxColumn(DataPropertyName = "IsChecked", Width = 50, 
+                                AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells)
     let addr = col "#" "Addr" 50 false
     let kind = col "Тип" "Kind" 50 true
     let serial = col "№" "Serial" 50 false

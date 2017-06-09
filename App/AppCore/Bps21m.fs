@@ -54,17 +54,13 @@ type ProductType with
     static member values = productTypes
 
 type Current = 
-    | I4 | I12 | I20
-    
+    | I4 | I12 | I20    
     member x.Value = 
         match x with
         | I4 -> 4m
         | I12 -> 12m
         | I20 -> 20m
-
     static member GetValue (x:Current) = x.Value
-    
-        
 
 type ScalePoint = 
     | ScaleBeg
@@ -92,8 +88,7 @@ type ProductionPoint =
             TestPorog1
             TestPorog2
             TestPorog3
-            ReservedPower
-        ]
+            ReservedPower ]
     member x.What = 
         match x with
         | Adjust -> "Корректировка Iвх"

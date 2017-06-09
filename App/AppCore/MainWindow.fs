@@ -174,7 +174,7 @@ let gridScenary =
 
 let gridProducts = 
     newGridView TabsheetParty.RightTab "PartyDataGrid"
-    |> GridView.withDisableSelection
+    
     
 
 let gridData =  

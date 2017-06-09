@@ -152,7 +152,6 @@ let (|ValueInRange|) (minv, maxv) n  =
 let iterate n f = 
     for k=1 to n do f()
 
-
 module List =
     let zip2 xs ys = 
         let rec loop r xs ys =
@@ -195,7 +194,6 @@ module List =
         | _ :: xs -> drop (n-1) xs 
 
     let singleton x = [x]
-
 
 type Double with
     static member toNullable (x:float) =        

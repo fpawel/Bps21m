@@ -71,7 +71,6 @@
     <Compile Include="Utils\Runtime.fs" />
     <Compile Include="Utils\Bin.fs" />
     <Compile Include="Utils\Hex.fs" />
-    
     <Compile Include="WinForms\WinFormsControlUtils.fs" />
     <Compile Include="WinForms\WinFormsConverters.fs" />
     <Compile Include="WinForms\WinFormsUtils.fs" />
@@ -166,7 +165,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="FsPickler">
-      <HintPath>..\packages\FsPickler.2.3.0\lib\net40\FsPickler.dll</HintPath>
+      <HintPath>..\packages\FsPickler.3.2.0\lib\net40\FsPickler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />

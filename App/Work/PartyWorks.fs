@@ -379,7 +379,7 @@ let testAlarmFailure =
     
     TestAlarmFailure.What <|> fun () -> maybeErr{
         do! party.WriteStend CmdStend.TurnCurrentOff
-        do! pause 1
+        do! pause 10
         do! party.SetProduction  TestAlarmFailure ( fun product -> 
             maybeErr{
                 let! rele = product.ReadStendRele()
@@ -444,7 +444,7 @@ let testLoadCapacity =
 let mainPowerOn = 
     ("Подача основного питания", _2minute, DelayPowerOn) <-|-> fun getTime -> maybeErr{
         do! party.WriteStend CmdStend.MainPowerOn
-        do! Delay.perform "Пауза после подачи осн. питания" getTime true 
+        do! sleep (getTime().TotalMilliseconds |> int)
     }
 
 let setNetAddrs = 
@@ -475,11 +475,11 @@ let testPorog nporog =
     prodPoint.What <|> fun () -> maybeErr{
         
         do! party.WriteStend CmdStend.Set4mA
-        do! pause 2
+        do! pause 10
         do! setupPorogs porogValues
         do! pause 1
         do! party.WriteStend CmdStend.Set12mA
-        do! pause 2
+        do! pause 10
         do! party.SetProduction prodPoint ( fun product ->   
             maybeErr{
                 let! rele = product.ReadStendRele()
