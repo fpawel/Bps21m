@@ -340,6 +340,8 @@ let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{
         do! testTimeout()        
         do! testTuneMode product
         let sign = if current > In then -1m else 1m
+        if I2 = I1 then 
+            do! Some <| sprintf "I2 = I1 = %M" I1
         d <- sign * abs(  d * (In - I2) / (I2 - I1) )
         do! tune()
         do! readCurrent()
