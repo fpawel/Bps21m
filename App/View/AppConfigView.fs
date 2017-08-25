@@ -82,6 +82,14 @@ type AppConfigView() =
         and set value =
             party.UloadMax <- value
 
+    [<DisplayName("Опрос приборов")>]    
+    [<Description("Выплнять опрос приборов")>]
+    [<TypeConverter(typeof<MyWinForms.Converters.YesNoConverter>)>]
+    member x.InterrogateProducts
+        with get() = config.InterrogateProducts
+        and set value =
+            config.InterrogateProducts <- value
+
     
 
     override __.ToString() = ""

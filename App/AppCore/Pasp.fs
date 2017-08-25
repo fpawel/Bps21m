@@ -21,9 +21,6 @@ let private product ((h,d):Party.Content) (p:Product) =
             td [%% "Заводской номер:"]
             td [value'; %% p.Serial ]
         ]
-        
-
-
     ]
 
     [   div [ class' "header1"; %% "Паспорт"]

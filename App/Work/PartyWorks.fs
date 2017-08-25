@@ -33,15 +33,21 @@ module private Helpers =
 
 
 type Bps21.ViewModel.Product with
-    static member TestRead (x:Bps21.ViewModel.Product) = maybeErr {
-        let! _ = x.ReadProductCurrent()
-        let! _ = x.ReadStendCurrent()
-        let! {Porog1 = p1; Porog2 = p2; Porog3 = p3} as a = x.ReadStendRele()
-        let! _,p1_,p2_,p3_  as b = x.ReadProductStatus()
-        if (p1,p2,p3) <> (p1_,p2_,p3_) then
-            Logging.error "несоответствие данных порогов, прибор: %A, стенд: %A" b a       
-        return! None }
-
+    static member TestRead (x:Bps21.ViewModel.Product) = 
+        if appCfg.InterrogateProducts then 
+            maybeErr {
+                let! _ = x.ReadProductCurrent()
+                let! _ = x.ReadStendCurrent()
+                let! {Porog1 = p1; Porog2 = p2; Porog3 = p3} as a = x.ReadStendRele()
+                let! _,p1_,p2_,p3_  as b = x.ReadProductStatus()
+                if (p1,p2,p3) <> (p1_,p2_,p3_) then
+                    Logging.error "несоответствие данных порогов, прибор: %A, стенд: %A" b a       
+                return! None }  
+        else 
+            maybeErr {
+                let! _ = x.ReadStendCurrent()
+                let! _ = x.ReadStendRele()
+                return! None  }  
 type Bps21.ViewModel.Party with
 
     member x.FailProductionIfConnError prodPt = 
@@ -100,8 +106,10 @@ type Bps21.ViewModel.Party with
                     let on = 
                         obj.ReferenceEquals(p,product)
                         |> Hard.Stend.PowerState.fromBool 
-                    let cmd = Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
-                    p.WriteStend cmd |> ignore )
+                    Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
+                    |> p.WriteStend 
+                    |> ignore )
+                do! sleep 5000
                 
                 Hard.Product.comportConfig.BaudRate <- 2400
                 do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
@@ -293,7 +301,7 @@ let testTuneMode (p:P) = maybeErr{
     }
 
 let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{        
-    
+    product.Connection <- None
     let tuneErrorLimit = 
         match scalePoint with
         | ScaleBeg -> appCfg.TuneI4
@@ -358,8 +366,7 @@ let tune scalePoint =
             do! pause 5
             do! party.WriteProducts (Cmd.SetTuneMode scalePoint, scalePoint.Current.Value)
             do! pause 5
-            do! party.DoForEachProduct( fun product -> 
-                
+            do! party.DoForEachProduct( fun product ->                 
                 match tuneProduct product scalePoint  getTimeLimit  with
                 | None -> product.SetProduction prod (true,"успешно") 
                 | Some err -> product.SetProduction prod (false,err) )
@@ -410,7 +417,7 @@ let testLoadCapacity =
             Porog2  = false
             Porog3  = false }  
     "Проверка нагрузочной способности" <|> fun () -> maybeErr{
-        do! party.WriteStend CmdStend.Set4mA
+        do! party.WriteStend CmdStend.Set20mA
         do! pause 5
         // подключить нагрузку
         do! Some party.RLoadLine
@@ -424,10 +431,10 @@ let testLoadCapacity =
                 let! rele = product.ReadStendRele()
                 do! testReleState rele mustRele
                 let! i = product.ReadStendCurrent()
-                do! testCurrentError "ток выхода, стенд" i 4m 0.04m 
+                do! testCurrentError "ток выхода, стенд" i 20m 0.2m 
 
                 let! i = product.ReadProductCurrent()
-                do! testCurrentError "ток выхода, цифровой канал" i 4m 0.04m 
+                do! testCurrentError "ток выхода, цифровой канал" i 20m 0.2m
 
                 let! U = product.ReadTensionOpen()
                 do! test1
@@ -443,16 +450,18 @@ let testLoadCapacity =
         party.FailProductionIfConnError LoadCapacity
     }
 
-let mainPowerOn = 
-    ("Подача основного питания", _2minute, DelayPowerOn) <-|-> fun getTime -> maybeErr{
-        do! party.WriteStend CmdStend.MainPowerOn
-        do! sleep (getTime().TotalMilliseconds |> int)
-    }
+//let mainPowerOn = 
+//    ("Подача основного питания", _2minute, DelayPowerOn) <-|-> fun getTime -> maybeErr{
+//        do! party.WriteStend CmdStend.MainPowerOn
+//        do! sleep (getTime().TotalMilliseconds |> int)
+//    }
 
 let setNetAddrs = 
-    "Установка сетевых адресов" <|> fun () -> maybeErr{
+    //"Установка сетевых адресов" <|> fun () -> maybeErr{
+    ("Установка сетевых адресов", TimeSpan.FromMinutes 5., DelayPowerOn) <-|-> fun getTime -> maybeErr{
         do! party.SetNetAddrs()
         do! party.WriteStend CmdStend.MainPowerOn
+        do! sleep (getTime().TotalMilliseconds |> int)
     }
 
 let setupPorogs (p1,p2,p3) = maybeErr{
@@ -487,9 +496,9 @@ let testPorog nporog =
                 let! rele = product.ReadStendRele()
                 do! testReleState rele mustRele
                 let! i = product.ReadStendCurrent()
-                do! testCurrentError "ток выхода, стенд" i 12m 0.024m 
+                do! testCurrentError "ток выхода, стенд" i 12m 0.12m 
                 let! ip = product.ReadProductCurrent()
-                do! testCurrentError "ток выхода, цифровой канал" i 12m 0.024m 
+                do! testCurrentError "ток выхода, цифровой канал" i 12m 0.12m 
                 let! _,p1,p2,p3 = product.ReadProductStatus()
                 do! test1 
                         ((p1,p2,p3) = (mustP1, mustP2, mustP3)) 
@@ -566,7 +575,7 @@ let readIDs =
 let main = 
     let test x = simpleTest x ()
     "Настройка БПС-21М3" <||> [
-        mainPowerOn
+        //mainPowerOn
         setNetAddrs
         writeIDs
         readIDs

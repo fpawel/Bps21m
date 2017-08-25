@@ -29,7 +29,12 @@ type ProductType =
 [<AutoOpen>]
 module private Helpers =
     let productTypes = 
-        [   yield { Number = Some 5
+        [   yield { Number = None
+                    Name = "24х24-P"
+                    U1 = 14.5m, 15.1m 
+                    U2 = 14.2m, 15m 
+                    In = 210m, 10m }
+            yield { Number = Some 5
                     Name = "220х24"
                     U1 = 23.5m, 24.5m 
                     U2 = 23m, 24.5m 

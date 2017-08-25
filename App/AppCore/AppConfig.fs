@@ -83,6 +83,7 @@ type ApplicatioConfig =
         mutable Stend : Stend.Sets  
         mutable TuneI4 : decimal
         mutable TuneI20 : decimal
+        mutable InterrogateProducts : bool
         }
     
     static member create() = 
@@ -91,7 +92,7 @@ type ApplicatioConfig =
             Stend = Stend.Sets.NewDefault()
             TuneI4 = 0.04m
             TuneI20 = 0.2m
-
+            InterrogateProducts  = true
         }
 
 let config, error, save = Json.Config.create "app.config.json" ApplicatioConfig.create
