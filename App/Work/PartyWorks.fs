@@ -413,9 +413,9 @@ let testLoadCapacity =
         {   Status  = true
             Failure = false
             SpMode  = false
-            Porog1  = false
-            Porog2  = false
-            Porog3  = false }  
+            Porog1  = true
+            Porog2  = true
+            Porog3  = true }  
     "Проверка нагрузочной способности" <|> fun () -> maybeErr{
         do! party.WriteStend CmdStend.Set20mA
         do! pause 5
