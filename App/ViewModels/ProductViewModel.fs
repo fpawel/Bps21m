@@ -16,10 +16,23 @@ module private ViewModelProductHelpers =
         | _ -> ""
 
     let fmtDecOpt = Option.map Decimal.toStr6 >> Option.withDefault ""
+
+    let parseSerial serial = 
+        let pat = @"^[^№]*№\s*(\d+)[^\d]+(\d+)[^\d]+(\d+)[^$]*$"
+        let re = System.Text.RegularExpressions.Regex(pat)
+        let xs = re.Match serial
+        if xs.Groups.Count = 4 then 
+            let pr (n:int) = Int32.Parse xs.Groups.[n].Value
+            Ok(pr 1, pr 2, pr 3)
+        else 
+            Err <| sprintf "%A не соответсвует шаблону %A" serial pat
+
+    let formatSerial serial quarter year = 
+        sprintf "Зав.№%d %d г. %d кв." serial year quarter 
     
     
 
-type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit -> RLoadLine) =
+type Product(p : P, getProductType : unit -> ProductType) =
     inherit ViewModelBase()    
     let mutable p = p
 
@@ -73,7 +86,7 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         r
 
     member x.ReadTensionLoad() = 
-        let r = Hard.Stend.readTensionLoad x.Addr (getRLoadLine())
+        let r = Hard.Stend.readTensionLoad x.Addr (getProductType().ExplosionProtection.R)
         x.Connection <- 
             r |> Result.map( sprintf "U_load: %M: стенд" )
             |> Some
@@ -97,18 +110,33 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         r
 
     member x.WriteID() = 
-        let r = Hard.Product.setID p.Addr p.Kind p.Serial
+        p <- { p with Kind = (getProductType()).What }
+        let r = Hard.Product.setID p.Addr p.Kind x.SerialQuarterYear
         x.Connection <- 
-            r |> Result.map( fun () ->  "ID-->")
+            r |> Result.map( fun () ->  
+                Logging.warn "%s: %s %s" x.What p.Kind x.SerialQuarterYear
+                sprintf "%s %s -->" p.Kind x.SerialQuarterYear)
             |> Some
         r
+
+
 
     member x.ReadID() = 
         let r = Hard.Product.readID p.Addr
         x.Connection <- 
-            r |> Result.map( fun (kind,serial) ->  
-                x.Product <- {x.Product with Serial = serial; Kind = kind }
-                "-->ID")
+            r |> Result.bind( fun (kind,serial) -> 
+                Logging.warn "%s: %s %s" x.What kind serial
+                p <- { p with Kind = kind }
+                match parseSerial serial with
+                | Ok (s,y,q) -> 
+                    p <- { p with Serial = s; Year = y; Quarter = q; }
+                    x.RaisePropertyChanged "SerialQuarterYear"
+                    x.RaisePropertyChanged "Serial"
+                    x.RaisePropertyChanged "Quarter"
+                    x.RaisePropertyChanged "Year"
+                | Err err -> 
+                    Logging.warn "%s: %s" x.What err
+                Ok "--> ID")
             |> Some
         r
 
@@ -128,6 +156,8 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
             |> Some
         r
 
+    
+
     member x.Connection
         with get () = connection
         and set v = 
@@ -140,7 +170,6 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         and set v = 
             if v <> p.IsChecked then
                 p <- { p with IsChecked = v}
-                x.RaisePropertyChanged "IsChecked"                
                 
     member x.Addr
         with get () = p.Addr          
@@ -148,19 +177,38 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
             if v <> p.Addr then
                 p <- { p with Addr = v}
                 x.RaisePropertyChanged "Addr"
-                x.RaisePropertyChanged "What"
-    
+
+    member x.SerialQuarterYear =
+        formatSerial p.Serial p.Quarter p.Year 
+
+    member x.Nameplate =
+        x.SerialQuarterYear + " " + x.Kind
+
+    member x.Kind = p.Kind
+
     member x.Serial
         with get () = p.Serial
         and set v = 
             if v <> p.Serial then
-                x.Product <- { p with Serial = v.Trim() }
-
-    member x.Kind
-        with get () = p.Kind
+                x.Product <- { p with Serial = v }
+                x.RaisePropertyChanged "Serial"
+                x.RaisePropertyChanged "SerialQuarterYear"
+                
+    member x.Year
+        with get () = p.Year
         and set v = 
-            if v <> p.Kind then
-                x.Product <- { p with Kind = v }
+            if v <> p.Year then
+                x.Product <- { p with Year = v }
+                x.RaisePropertyChanged "Year"
+                x.RaisePropertyChanged "SerialQuarterYear"
+
+    member x.Quarter
+        with get () = p.Quarter
+        and set v = 
+            if v <> p.Quarter then
+                x.Product <- { p with Quarter = v }
+                x.RaisePropertyChanged "Quarter"
+                x.RaisePropertyChanged "SerialQuarterYear"
 
     member x.ProductCurrent = fmtDecOpt productCurrent
     member x.StendCurrent = fmtDecOpt stendCurrent
@@ -180,14 +228,13 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
         and set n =
             if p = n then () else
             p <- n
-            x.RaisePropertyChanged "Product"            
-            if p.Serial <> n.Serial then
-                x.RaisePropertyChanged "Serial"
-            if p.Kind <> n.Kind then
-                x.RaisePropertyChanged "Kind"
-            if p.What <> n.What then
-                x.RaisePropertyChanged "What"                
-
+            x.RaisePropertyChanged "Product"
+            x.RaisePropertyChanged "Serial"
+            x.RaisePropertyChanged "Year"
+            x.RaisePropertyChanged "Quarter"
+            x.RaisePropertyChanged "What"
+            x.RaisePropertyChanged "Nameplate"
+            
             for pt in Bps21.ProductionPoint.values do
                 if p.Production.TryFind pt <> n.Production.TryFind pt then
                     x.RaisePropertyChanged pt.Property 
@@ -208,8 +255,8 @@ type Product(p : P, getProductType : unit -> ProductType, getRLoadLine : unit ->
             Logging.write level "%s: %s, %s" x.What pt.What text
             x.RaisePropertyChanged pt.Property 
 
-    static member New productType rloadLine p  = 
-        Product(p, productType, rloadLine )     
+    static member New productType p  = 
+        Product(p, productType )     
         
 
     member x.ProdPtAdjust = getProd Adjust 

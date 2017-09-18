@@ -21,18 +21,7 @@ type PorogTriggerType =
     | NonblockDec
     static member values = [ BlockInc; BlockDec; NonblockInc; NonblockDec]
 
-type NPorog= 
-    | NPorog1
-    | NPorog2
-    | NPorog3
-    static member values = [ NPorog1; NPorog2; NPorog3]
-    
-    member x.Order = NPorog.GetOrder x
 
-    static member GetOrder = function
-        | NPorog1 -> 0
-        | NPorog2 -> 1
-        | NPorog3 -> 2
 
 type Status = 
     | Norm | Failure | SpMode
@@ -122,7 +111,9 @@ let private (|Bytes2|) =
 
 let private tryGetID m = 
     match Map.tryFind 4uy m, Map.tryFind 5uy m  with 
-    | Some kind, Some serial -> Ok (kind,serial)
+    | Some kind, Some s -> 
+        
+        Ok (kind,s)
     | None, Some _ -> 
         sprintf "ObjectID 4 not found in %A" m |> Err 
     | Some _, None -> 
@@ -132,28 +123,20 @@ let private tryGetID m =
 
 let rec private parseID acc = function
     | [] -> Ok acc
-    | (bp,_) :: (len_,nLen) :: xs  ->
-        let len = int len_
-        if len = 0 then 
-            sprintf "длина строки [%d] = 0, %A" nLen acc
-            |> Err
-        elif xs.Length < len then
-            sprintf "длина строки [%d] = %d больше длины среза [%d..] = %d, %A" 
-                nLen len (nLen+1) xs.Length acc
-            |> Err
+    | (bp,_) :: (len,nLen) :: xs  ->
+        if len = 0uy || xs.Length < int len then
+            Ok acc
         else
             let x =
-                Seq.take len xs
+                Seq.take (int len) xs
                 |> Seq.map fst
                 |> Seq.toArray
                 |> String.FromWindows1251Bytes
-            parseID ( (bp,x)::acc ) (List.drop len xs)
+            parseID ( (bp,x)::acc ) (List.drop (int len) xs)
     | Bytes2 str ->
         sprintf "%s - не соответсвует образцу, %A" 
             str acc
         |> Err
-
-
 
 let readID addy =
     // 03 2b 0e 02 03 crc crc
@@ -164,9 +147,9 @@ let readID addy =
             data = [0x0Euy; 2uy; 3uy; ]
             what  = "чтение идентификационных данных"}
             (fun _ -> "")
-            (   List.drop 6 
+            (   List.drop 6
                 >> List.mapi(fun n x -> x,n )
-                >> parseID []  
+                >> parseID []
                 >> Result.map Map.ofList
                 >> Result.bind tryGetID )
 

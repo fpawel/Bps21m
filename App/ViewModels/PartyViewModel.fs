@@ -19,7 +19,7 @@ type ProductTypesConverter() =
     override this.GetStandardValuesSupported _ = true
     override this.GetStandardValuesExclusive _ = true
     override this.GetStandardValues _ =       
-        ProductType.values
+        ProductTypes.values
         |> Seq.toArray
         |> Array.map( fun x -> x.What)
         |> TypeConverter.StandardValuesCollection
@@ -33,13 +33,12 @@ type Party
     let mutable partyHeader = partyHeader
     let mutable partyData = partyData
     let productType() = partyHeader.ProductType 
-    let rLoadLine()  = partyData.RLoadLine
-    
+        
     let products, setProducts = 
         let x = BindingList<P>()
         let setProducts xs = 
             x.Clear()
-            xs |> List.map (P.New productType rLoadLine)
+            xs |> List.map (P.New productType)
             |> List.iter x.Add
         setProducts partyData.Products
         x, setProducts
@@ -96,7 +95,7 @@ type Party
     
     member x.AddNewProduct() = 
         Product.New (x.NewValidAddr())
-        |> P.New productType rLoadLine
+        |> P.New productType
         |> products.Add 
         
     member __.DeleteProduct(product) = 
@@ -122,23 +121,9 @@ type Party
         with get() = partyHeader.ProductType.What
         and set v = 
             if v <> x.ProductType then
-                let t = 
-                    ProductType.values 
-                    |> List.tryFind( ProductType.what >> (=) v)
-                    |> Option.withDefault ProductType.values.Head
-                partyHeader <- { partyHeader with ProductType = t}
+                partyHeader <- { partyHeader with ProductTypeNumber = (ProductTypes.byName v).Number}
                 x.RaisePropertyChanged "ProductType"
                 setMainWindowTitle()
-
-    member __.RLoadLine = partyData.RLoadLine
-    member x.RLoadLineUI 
-        with get() = partyData.RLoadLine.What
-        and set str = 
-            let v = RLoadLine.Parse str
-            if v <> partyData.RLoadLine then                
-                partyData <- { partyData with RLoadLine = v}
-                x.RaisePropertyChanged "RLoadLineUI"
-                x.RaisePropertyChanged "RLoadLine"
 
     member x.Name 
         with get() = partyHeader.Name
@@ -155,19 +140,7 @@ type Party
                 partyData <- { partyData with ProdLog =  value }
                 x.RaisePropertyChanged "ProdLog"
 
-    member x.UloadMin
-        with get() = partyData.UloadMin
-        and set value =
-            if value <> partyData.UloadMin then
-                partyData <- { partyData with UloadMin =  value }
-                x.RaisePropertyChanged "UloadMin"
-
-    member x.UloadMax
-        with get() = partyData.UloadMax
-        and set value =
-            if value <> partyData.UloadMax then
-                partyData <- { partyData with UloadMax =  value }
-                x.RaisePropertyChanged "UloadMax"
+    
     
 [<AutoOpen>]
 module private RunInfoHelpers =

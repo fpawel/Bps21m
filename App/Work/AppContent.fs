@@ -21,7 +21,7 @@ let party =
         match r with
         | Err e -> 
             Logging.error "не удалось открыть ранее сохранённую партию : %s" e
-            Party.New "-" ProductType.values.Head 1
+            Party.New "-" 0 1
         | Ok x -> x
 
     let party = 
@@ -75,7 +75,7 @@ let load partyId =
         None
     
 
-let getParties prodType serial month year =
+let getParties prodType serial quarter year =
     parties |> Map.toList |> List.map snd
     |> List.filter( fun p ->
         match prodType with 
@@ -83,14 +83,14 @@ let getParties prodType serial month year =
         | _ -> true  )
     |> List.filter( fun p ->
         match serial with 
-        | Some serial -> List.exists ((=) serial) p.Serials 
+        | Some serial -> p.Serials |> List.exists ( fun (a,_,_) -> a = serial) 
         | _ -> true  )
     |> List.filter( fun p ->
-        match month with 
-        | Some month -> p.Date.Month = month
+        match quarter with 
+        | Some quarter -> p.Serials |> List.exists ( fun (_,a,_) -> a = quarter) 
         | _ -> true )
     |> List.filter( fun p ->
         match year with 
-        | Some year -> p.Date.Year = year
-        | _ -> true )
+        | Some year -> p.Serials |> List.exists ( fun (_,_,a) -> a = year) 
+        | _ -> true  )
     |> Repository.partiesHeadersDateTree 

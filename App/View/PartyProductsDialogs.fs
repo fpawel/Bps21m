@@ -36,7 +36,7 @@ type ProductTypesConverter() =
     override this.GetStandardValuesSupported _ = true
     override this.GetStandardValuesExclusive _ = true
     override this.GetStandardValues _ =       
-        ProductType.values
+        ProductTypes.values
         |> Seq.toArray
         |> Array.map( fun x -> x.What)
         |> TypeConverter.StandardValuesCollection
@@ -121,7 +121,7 @@ let deleteProducts (b:Button) =
 let createNewParty (b:Button) = 
     let d = 
         {   Name = "-"
-            ProductType = ProductType.values.Head.What
+            ProductType = ProductTypes.values.[0].What
             Count = 1}
     let g = new PropertyGrid(SelectedObject = d, 
                                 ToolbarVisible = false, Height = 250,
@@ -136,12 +136,13 @@ let createNewParty (b:Button) =
                 Width = 400 }
             ( fun () -> Some () )
             ( fun () ->
-                let prodType = 
-                    ProductType.values 
-                    |> List.tryFind ( ProductType.what >> (=) d.ProductType)
-                    |> Option.withDefault ProductType.values.Head
+                let n = 
+                    ProductTypes.values 
+                    |> Seq.tryFind ( fun a -> a.What = d.ProductType)
+                    |> Option.map(fun a -> a.Number)
+                    |> Option.withDefault 0
                
-                let b = Party.New d.Name  prodType d.Count
+                let b = Party.New d.Name  n d.Count
                 party.Party <- b
                 AppContent.save()
                 Scenary.updateGridViewBinding() )

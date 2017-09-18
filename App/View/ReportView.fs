@@ -41,15 +41,6 @@ let initialize =
         TopBar.placeHolder.Visible <- true
 
 
-    TopBar.buttonReport.Click.Add <| fun _ ->  
-        
-        webBrowser.DocumentText <- 
-            Bps21.Pasp.party AppContent.party.Party
-        MainWindow.mainLayer.Visible <- false
-        TopBar.placeHolder.Visible <- false
-        placeHolder.Parent <- MainWindow.form
-        placeHolder.BringToFront()
-
     btnSave.Click.Add <| fun _ ->
         let dlg = 
             new SaveFileDialog

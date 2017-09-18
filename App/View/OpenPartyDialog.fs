@@ -32,11 +32,11 @@ module private Helpers =
     let updateTreeView 
             (treeview:TreeView) 
             (nodes:ResizeArray<Node * TreeNode>) 
-            prodType serial month year = 
+            prodType serial quarter year = 
         let mutable selectedNode : TreeNode = null     
         nodes.Clear() 
         treeview.Nodes.Clear()
-        AppContent.getParties prodType serial month year
+        AppContent.getParties prodType serial quarter year
         |> Seq.iter( fun (year,xs) -> 
             let xyear = TreeNode(sprintf "%d" year  )
             treeview.Nodes.Add xyear |> ignore
@@ -73,10 +73,10 @@ module private Helpers =
         let cbType = 
             let x =
                 new MyWinForms.FlatComboBox(Parent = p, Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList,
-                                            DisplayMember = "What", FlatStyle = FlatStyle.Flat)            
-            (box "") :: (List.map box ProductType.values )
-            |> List.toArray
-            |> x.Items.AddRange 
+                                            DisplayMember = "What", FlatStyle = FlatStyle.Flat)        
+            x.Items.Add "" |> ignore
+            for a in ProductTypes.values do
+                x.Items.Add a.What |> ignore
             x            
         let _ = new Panel( Parent = p, Height = 3, Dock = DockStyle.Top )         
 
@@ -159,10 +159,10 @@ module private Helpers =
         let acceptFilter _ =
             let prodType = 
                 let n = cbType.SelectedIndex - 1
-                if n>(-1) && n<ProductType.values.Length then Some ProductType.values.[n] else None
+                if n>(-1) && n<ProductTypes.values.Count then Some ProductTypes.values.[n] else None
             let serial = 
-                let s = tbSerialNumber.Text
-                if String.IsNullOrEmpty s  then None  else Some s
+                let b,v = Int32.TryParse tbSerialNumber.Text
+                if b && v > -1 && v < 32  then Some v else None
             let month = 
                 let n = cbMonth.SelectedIndex
                 if n>0 && n<13 then Some n else None

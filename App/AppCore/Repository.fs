@@ -132,7 +132,7 @@ module Party =
             stream.Close()    
 
     let createNew() =
-        let p = Party.New "" ProductType.values.Head 1
+        let p = Party.New "" 0 1
         Result.map (fun () -> p) (save p )
     
     let openById partyId partiesHeaders  = 

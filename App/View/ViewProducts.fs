@@ -28,9 +28,9 @@ module Columns =
         %% new CheckBoxColumn(DataPropertyName = "IsChecked", Width = 50, 
                                 AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells)
     let addr = col "#" "Addr" 50 false
-    let kind = col "Тип" "Kind" 50 true
     let serial = col "№" "Serial" 50 false
-        
+    let year = col "Год" "Year" 50 false
+    let quater = col "Квартал" "Quarter" 50 false
     
     let rele = 
         let col1 header prop =  col header prop 50 true 
@@ -49,7 +49,7 @@ module Columns =
     let conn = col "Связь" "Connection" 80 true
 
     let columns = 
-        [   isChecked; addr; kind; serial
+        [   isChecked; addr; serial; year; quater
             conn
             blockStatus
             currProd

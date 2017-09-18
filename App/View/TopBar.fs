@@ -30,18 +30,18 @@ let buttonAbout =
 
     x
 
-let buttonReport = 
+let buttonProductTypes = 
     let x =
         new Button( Parent = right, Height = 40, Width = 40, Visible = true,
                     ImageList = Widgets.Icons.instance.imageList1,
                     FlatStyle = FlatStyle.Flat,
-                    Dock = DockStyle.Right, ImageKey = "doc")
+                    Dock = DockStyle.Right, ImageKey = "tools")
     right.Controls.Add <| new Panel(Dock = DockStyle.Right, Width = 3)
     x
     
 
 let initialize = 
-    setTooltip buttonReport "индивидуальные паспорта"
+    setTooltip buttonProductTypes "Таблица исполнений"
 
     let buttonSave = new Button(Parent = thread1ButtonsBar, AutoSize = true, Dock = DockStyle.Left,
                                 FlatStyle = FlatStyle.Flat,

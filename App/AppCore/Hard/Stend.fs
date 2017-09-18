@@ -71,29 +71,24 @@ let readCurrent n =
 let readTensionOpenCircuit n =
     read3 n 2 "напряжение линии питания датчика без нагрузки" 
 
-let readTensionLoad n rLoad =
-    let reg = 
-        match rLoad with
-        | RLoadLine68 -> 6
-        | RLoadLine91 -> 8
-    read3 n reg (sprintf "напряжение линии питания датчика под нагрузкой %M Ом" rLoad.Value) 
+let readTensionLoad n r =
+    let s = sprintf "напряжение линии питания датчика под нагрузкой %M Ом" r
+    match r with
+    | 68m -> read3 n 6 s
+    | 91m -> read3 n 8 s
+    | _ -> Err ( sprintf "недопустимое значение R, %s" s)
 
-let loadLine addr rLine = 
+let loadLine addr r = 
     let code, what = 
-        match rLine with
-        | Some RLoadLine68 -> 
-            0x42, "подключить нагрузку 68 Ом"
-        | Some RLoadLine91 -> 
-            0x44, "подключить нагрузку 91 Ом"
-        | None -> 
-            0x46, "отключить нагрузку"
+        match r with
+        | 68m -> 0x42, "подключить нагрузку 68 Ом"
+        | 91m -> 0x44, "подключить нагрузку 91 Ом"
+        | _   -> 0x46, "отключить нагрузку"
     Mdbs.write16 
         comportConfig 
         (sprintf "СТЕНД %d: %s" addr what) 
         (addrbyte addr) Mdbs.AnswerRequired 
         code [|0uy; 0uy|]
-
-
 
 type Rele = 
     {   Status : bool
@@ -152,7 +147,7 @@ type Cmd =
     | SetPower of PowerType * PowerState
     | SetCurrent of Bps21.Current
     | TurnCurrentOff
-    | LoadLine of RLoadLine option
+    | LoadLine of decimal
 
     member cmd.Perform n =
         match cmd with
@@ -161,6 +156,7 @@ type Cmd =
             setPower powerType powerState n            
         | TurnCurrentOff ->
             turnCurrentOff n
+
         | LoadLine r ->
             loadLine n r
         
@@ -172,11 +168,11 @@ type Cmd =
         | TurnCurrentOff -> "СТЕНД: отключить ток" 
         | LoadLine rLine ->
             match rLine with
-            | Some RLoadLine68 -> 
+            | 68m -> 
                 "подключить нагрузку 68 Ом"
-            | Some RLoadLine91 -> 
+            | 91m -> 
                 "подключить нагрузку 91 Ом"
-            | None -> 
+            | _ -> 
                 "отключить нагрузку"
         
 
@@ -202,13 +198,13 @@ type Cmd =
         (SetCurrent I20)
 
     static member Load68 = 
-        (LoadLine <| Some RLoadLine68)
+        (LoadLine 68m)
 
     static member Load91 = 
-        (LoadLine <| Some RLoadLine91)
+        (LoadLine 91m)
 
     static member UnloadLine = 
-        (LoadLine None)
+        (LoadLine 0m)
 
     static member values = 
         [   for pt in [PowerMain; PowerReserve] do     
@@ -216,7 +212,7 @@ type Cmd =
                     yield SetPower(pt,ps)
             for v in [ I4; I12; I20] do
                 yield SetCurrent v
-            yield  LoadLine <| Some RLoadLine68
-            yield  LoadLine <| Some RLoadLine91
-            yield  LoadLine None
+            yield  LoadLine 68m
+            yield  LoadLine 91m
+            yield  LoadLine 0m
         ]

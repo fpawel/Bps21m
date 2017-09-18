@@ -232,6 +232,9 @@ let initialize =
         popup.Show(buttonSettings)
 
         
-    Thread2.scenary.Set PartyWorks.main
+    Thread2.scenary.Set (PartyWorks.main())
+
+    TopBar.buttonProductTypes.Click.Add <| fun _ ->  
+        ProductTypesEdit.create().BringToFront()
 
     fun () -> ()

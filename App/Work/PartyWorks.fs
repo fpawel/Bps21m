@@ -11,6 +11,10 @@ open Bps21.Hard.Product
 module private Helpers = 
     type P = Bps21.ViewModel.Product
     let party = AppContent.party
+    let prodType() = (fst party.Party).ProductType   
+
+        
+
     let appCfg = AppConfig.config
     let viewCfg = appCfg.View
     
@@ -27,7 +31,7 @@ module private Helpers =
 
     type CmdStend = Hard.Stend.Cmd
     type Rele = Hard.Stend.Rele
-    type NPorog = Hard.Product.NPorog
+    type NPorog = Bps21.NPorog
     
 
 
@@ -99,7 +103,7 @@ type Bps21.ViewModel.Party with
         x.DoForEachProduct (fun p -> p.WriteProduct (cmd,value) |> ignore ) 
             |> Result.someErr
 
-    member x.SetNetAddrs() = maybeErr{        
+     member x.MainPowerOn() = maybeErr{        
         do! x.DoForEachProduct (fun product -> 
             maybeErr{
                 do! x.DoForEachProduct (fun p -> 
@@ -109,20 +113,14 @@ type Bps21.ViewModel.Party with
                     Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
                     |> p.WriteStend 
                     |> ignore )
-                do! sleep 5000
-                
-                Hard.Product.comportConfig.BaudRate <- 2400
-                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
-                do! sleep 200
-                do! Hard.Product.SetBoudRate.Perform product.Addr Mdbs.AnswerNotRequired 9600M
-                do! sleep 200
-                Hard.Product.comportConfig.BaudRate <- 9600
-                
-                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
-                do! sleep 200
-                let! _ = product.ReadProductCurrent()
-                return ()
             } |> ignore         
+        )   
+    }
+
+    member x.WriteNetAddrs() = maybeErr{        
+        do! x.DoForEachProduct (fun product -> 
+            Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr) 
+            |> ignore         
         )   
     }
 
@@ -206,8 +204,6 @@ module private Helpers1 =
     let _2minute = TimeSpan.FromMinutes 2.
     let _10sec = TimeSpan.FromSeconds 10.
 
-    
-
     let withСonfig (scenary:Operation) =
         let dummy msg = 
             Logging.debug "%s" msg
@@ -245,6 +241,7 @@ module private Helpers1 =
     let testCurrentError what current nominal errorLimit =
         let d = abs (current - nominal)
         let errorLimit = abs errorLimit
+        Logging.debug "%s : %M мА. Должен быть %M ± %M" what current nominal errorLimit
         test1 
             (d < errorLimit) 
             (sprintf "%s : %M мА. Должен быть %M ± %M" what current nominal errorLimit)
@@ -254,9 +251,12 @@ module private Helpers1 =
             (rele = mustRele ) 
             ( ReleInfo.diffHtml rele mustRele)
 
-    
+ 
 
 let adjust = Bps21.Adjust.What <|> fun () ->maybeErr {
+    let t = prodType()
+    if not t.Tune then return! None else
+    
     do! party.WriteStend CmdStend.Set4mA
     do! pause 1
     do! party.WriteProducts Cmd.Adjust4mA
@@ -265,13 +265,16 @@ let adjust = Bps21.Adjust.What <|> fun () ->maybeErr {
     do! pause 1
     do! party.WriteProducts Cmd.Adjust20mA
     do! pause 1
-    let U_min,U_max = let h,_ = party.Party in h.ProductType.U1            
+       
     do! party.SetProduction Bps21.Adjust (fun p -> 
         maybeErr{
             let! U = p.ReadTensionOpen()
-            do! test1
-                    (U >= U_min && U <= U_max)
-                    (sprintf "контроль Uл %M...%M: %M" U_min U_max U)
+            if t.Uout = 16m || t.Uout=24m then 
+                let umin = t.Uout - t.DUcc1
+                let umax = t.Uout + t.DUcc2
+                do! test1
+                        (U >= umin && U <= umax)
+                        (sprintf "контроль Uл %M...%M: %M" umin umax U)
         } 
     )
 }
@@ -361,6 +364,11 @@ let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{
 let tune scalePoint = 
     let prod = Bps21.Tune scalePoint
     ( prod.What, _2minute, DelayTune) <-|-> fun getTimeLimit -> 
+        
+        let t = prodType()
+
+        if not t.Tune then None else
+
         let tuneResult = maybeErr{
             do! party.WriteStend (CmdStend.SetCurrent scalePoint.Current)
             do! pause 5
@@ -417,19 +425,19 @@ let testLoadCapacity =
             Porog2  = true
             Porog3  = true }  
     "Проверка нагрузочной способности" <|> fun () -> maybeErr{
+        let prodType = prodType()
+        if not prodType.LoadCapacity then return! None else
         do! party.WriteStend CmdStend.Set20mA
         do! pause 5
         // подключить нагрузку
-        do! Some party.RLoadLine
+        do! prodType.ExplosionProtection.R
             |> CmdStend.LoadLine
             |> party.WriteStend 
         do! pause 5
 
         do! party.SetProduction Bps21.LoadCapacity (fun product -> 
             maybeErr{
-                
-                let! rele = product.ReadStendRele()
-                do! testReleState rele mustRele
+               
                 let! i = product.ReadStendCurrent()
                 do! testCurrentError "ток выхода, стенд" i 20m 0.2m 
 
@@ -437,9 +445,10 @@ let testLoadCapacity =
                 do! testCurrentError "ток выхода, цифровой канал" i 20m 0.2m
 
                 let! U = product.ReadTensionOpen()
+                let u1,u2 = prodType.Uout - prodType.DUcc1, prodType.Uout + prodType.DUcc2
                 do! test1
-                        (U >= party.UloadMin && U <= party.UloadMax)
-                        (sprintf "контроль Uл %M...%M: %M" party.UloadMin party.UloadMax U)                
+                        (U >= u1 && U <= u2)
+                        (sprintf "контроль Uл %M...%M: %M" u1 u2 U)                
             } 
         )
         
@@ -456,17 +465,12 @@ let testLoadCapacity =
 //        do! sleep (getTime().TotalMilliseconds |> int)
 //    }
 
-let setNetAddrs = 
-    //"Установка сетевых адресов" <|> fun () -> maybeErr{
-    ("Установка сетевых адресов", TimeSpan.FromMinutes 5., DelayPowerOn) <-|-> fun getTime -> maybeErr{
-        do! party.SetNetAddrs()
-        do! party.WriteStend CmdStend.MainPowerOn
-        do! sleep (getTime().TotalMilliseconds |> int)
-    }
+    
 
 let setupPorogs (p1,p2,p3) = maybeErr{
-    for n,v in List.zip NPorog.values [p1; p2; p3] do
-        do! party.WriteProducts (Cmd.SetPorog(n, NonblockInc), v)
+    for n,v in List.zip NPorog.values [p1; p2; p3] do    
+        if prodType().Porog n then      
+            do! party.WriteProducts (Cmd.SetPorog(n, NonblockInc), v)    
 }
 let testPorog nporog = 
     
@@ -484,6 +488,8 @@ let testPorog nporog =
             Porog2  = mustP2
             Porog3  = mustP3 }    
     prodPoint.What <|> fun () -> maybeErr{
+
+        if not (prodType().Porog nporog) then return! None else
         
         do! party.WriteStend CmdStend.Set4mA
         do! pause 10
@@ -496,9 +502,9 @@ let testPorog nporog =
                 let! rele = product.ReadStendRele()
                 do! testReleState rele mustRele
                 let! i = product.ReadStendCurrent()
-                do! testCurrentError "ток выхода, стенд" i 12m 0.12m 
+                do! testCurrentError "ток выхода, стенд" i 12m 0.19m 
                 let! ip = product.ReadProductCurrent()
-                do! testCurrentError "ток выхода, цифровой канал" i 12m 0.12m 
+                do! testCurrentError "ток выхода, цифровой канал" ip 12m 0.19m 
                 let! _,p1,p2,p3 = product.ReadProductStatus()
                 do! test1 
                         ((p1,p2,p3) = (mustP1, mustP2, mustP3)) 
@@ -535,36 +541,42 @@ let test4mA (product:P) =
 
 let testReservedPower = 
     ReservedPower.What <|> fun () -> maybeErr{
+        if not (prodType().ReservedPower) then return! None else         
         do! party.WriteStend CmdStend.Set4mA    
         do! pause 2
         do! party.WriteStend CmdStend.ReservePowerOn
         do! pause 2
         do! party.WriteStend CmdStend.MainPowerOff
-        do! pause 2
+        do! pause 10
         do! party.DoForEachProduct ( test4mA >> ignore)
         do! party.WriteStend CmdStend.MainPowerOn
         do! pause 2
         do! party.WriteStend CmdStend.ReservePowerOff
-        do! pause 2
+        do! pause 10
         do! party.SetProduction ReservedPower test4mA
     }
 
+
 let writeIDs = 
     "Запись серийных номеров" <|> fun () -> 
-        party.DoForEachProduct <| fun  p ->
-            maybeErr{
-                let d,_ = party.Party
-                p.Kind <- d.ProductType.What
-                let ax = p.Kind, p.Serial
-                do! p.WriteID()
-                let! bx = p.ReadID()
-                if bx <> ax then
-                    return!
-                        sprintf "записано %A, считано %A"  ax bx
-                        |> Err
+        
+        maybeErr{ 
+            do! party.DoForEachProduct <| fun  p ->
+                maybeErr{
+                    do! p.WriteID()                    
+                } |> ignore
 
-            } |> ignore
-        |> Result.someErr
+            do! pause 10
+
+            do! party.DoForEachProduct <| fun  p ->
+                maybeErr{
+                    let! a = Hard.Product.readID p.Addr
+                    if a <> (p.Kind, p.SerialQuarterYear) then
+                        Logging.error "%d: ошибка записи серийного номера: записано %A, считано %A"  
+                            p.Addr (p.Kind, p.SerialQuarterYear) a
+                } |> ignore
+        }
+                
 
 let readIDs = 
     "Считывание серийных номеров" <|> fun () -> 
@@ -572,28 +584,46 @@ let readIDs =
             p.ReadID() |> ignore
         |> Result.someErr
 
-let main = 
+let main() = 
+    let prodType = prodType()
     let test x = simpleTest x ()
     "Настройка БПС-21М3" <||> [
-        //mainPowerOn
-        setNetAddrs
-        writeIDs
-        readIDs
-        adjust
-        tune ScaleBeg
-        tune ScaleEnd
-        testLoadCapacity
-        testAlarmFailure
-        testPorog NPorog1
-        testPorog NPorog2
-        testPorog NPorog3
-        testReservedPower
-        "Установка порогов" <|> fun () -> 
-            setupPorogs (5.6m, 7.2m, 18.4m)             
+        yield ("Подача питания и прогрев", TimeSpan.FromMinutes 5., DelayPowerOn) <-|-> fun getTime -> maybeErr{
+            do! party.MainPowerOn()
+            do! Delay.perform  "Прогрев" getTime false 
+        }
+                    
+        yield ("Установка сетевых адресов") <|> fun _ -> maybeErr{
+            do! party.WriteNetAddrs()
+            do! pause 10
+        }
+        yield writeIDs
+        yield readIDs
+        if prodType.Tune then
+            yield adjust  
+            yield tune ScaleBeg
+            yield tune ScaleEnd
+        if prodType.LoadCapacity then 
+            yield testLoadCapacity
+        yield testAlarmFailure
+        
+        if prodType.Porog1 then 
+            yield testPorog NPorog1
+        if prodType.Porog2 then 
+            yield testPorog NPorog2
+        if prodType.Porog3 then 
+            yield testPorog NPorog3
+        
+        if prodType.ReservedPower then 
+            yield  testReservedPower
+
+        if prodType.Porog1 || prodType.Porog2 || prodType.Porog3 then
+            yield "Установка порогов" <|> fun () -> 
+                setupPorogs (5.6m, 7.2m, 18.4m)             
     ] |> withСonfig
 
-let all = 
-    Op.MapReduce Some main 
+let all() = 
+    Op.MapReduce Some (main())
 
 [<AutoOpen>]
 module private Helpers3 =

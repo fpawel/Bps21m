@@ -13,7 +13,7 @@ module private Helpers =
     
     type DelayType with
         static member getWorks ctx =
-            PartyWorks.all 
+            PartyWorks.all() 
             |> List.choose( function 
                 | Timed (op, ({DelayType = EqualsTo ctx true } as d), _) -> Some (op,d)
                 | _ -> None ) 

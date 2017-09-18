@@ -2,61 +2,176 @@
 
 open System
 
+type ExplosionProtection = 
+    | AIIB 
+    | AIIC
+    | BIIB 
+    | BIIC    
+    | None__
+    member x.What = 
+        match x with
+        | AIIB -> "iaIIB"
+        | AIIC -> "iaIIC"
+        | BIIB -> "ibIIB"
+        | BIIC -> "ibIIC"
+        | None__ -> ""
 
+    member x.R = 
+        match x with
+        | AIIC 
+        | BIIC -> 91m
+        | _ -> 68m
+
+type SwitchLoadType = 
+    | Rele
+    | K
+    | None_
+    member x.What = 
+        match x with
+        | Rele -> "P"
+        | K -> "K"
+        | None_ -> ""
+
+
+type NPorog= 
+    | NPorog1
+    | NPorog2
+    | NPorog3
+    static member values = [ NPorog1; NPorog2; NPorog3]
+    
+    member x.Order = NPorog.GetOrder x
+
+    static member GetOrder = function
+        | NPorog1 -> 0
+        | NPorog2 -> 1
+        | NPorog3 -> 2
+    
 
 type ProductType =
-    {   Number : int option
-        Name : string
-        // контроль напряжения питания линии датчика 
-        U1 : decimal * decimal
-        U2 : decimal * decimal
-        // нагрузка линии датчика
-        In : decimal * decimal
+    {   mutable Number : int 
+        mutable Ucc : decimal
+        mutable DUcc1 : decimal 
+        mutable DUcc2 : decimal 
+        mutable Uout : decimal
+        mutable SwitchLoadType : SwitchLoadType
+        mutable ExplosionProtection : ExplosionProtection
+        mutable Porog1 : bool
+        mutable Porog2 : bool
+        mutable Porog3 : bool
+        mutable ReservedPower : bool
+        mutable Tune : bool
+        mutable LoadCapacity : bool
     }
     static member what (x : ProductType) =  x.What
 
+    member x.Porog = function
+        | NPorog1 -> x.Porog1
+        | NPorog2 -> x.Porog2
+        | NPorog3 -> x.Porog3
+        
     member x.Doc = 
-        let n = 
-            match x.Number with
-            | Some n -> sprintf "-%s%d" (if n < 10 then "0" else "") n
-            | _ -> ""
+        sprintf "ИБЯЛ.411111.047%s" ( if x.Number > 0 then x.StrNumber else "" )
 
-        sprintf "ИБЯЛ.411111.047%s" n
+    member x.StrNumber = 
+        if x.Number < 10 then sprintf "0%d" x.Number else sprintf "%d" x.Number
+
+    member x.ExplosionProtectionStr  
+        with get () = 
+            x.ExplosionProtection.What
+        and set v = 
+            x.ExplosionProtection <- 
+                match v with
+                | "iaIIB" -> AIIB 
+                | "iaIIC" -> AIIC 
+                | "ibIIB" ->  BIIB
+                | "ibIIC" ->  BIIC 
+                | _ -> None__ 
+
+    member x.SwitchLoadTypeStr  
+        with get () = 
+            x.SwitchLoadType.What
+        and set v = 
+            x.SwitchLoadType <- 
+                match v with
+                | "P" -> Rele
+                | "K" -> K 
+                | _ -> None_ 
+            
 
     member x.What = 
-        sprintf "БПС21М3-%s" x.Name
+        let strST = 
+            match x.SwitchLoadType with
+            | Rele -> "-Р" 
+            | K -> "-K"
+            | None_ -> ""
+        let strExplosionProtection = 
+            if x.ExplosionProtection = None__ then 
+                "" 
+            else 
+                "-" + x.ExplosionProtection.What
+        let strUout = 
+            if x.Uout = 0m then 
+                "-КСД"
+            else
+                sprintf "х%M" x.Uout
+        sprintf "%s: %M%s%s%s" x.StrNumber x.Ucc strUout strExplosionProtection strST
+
     
-[<AutoOpen>]
-module private Helpers =
-    let productTypes = 
-        [   yield { Number = None
-                    Name = "24х24-P"
-                    U1 = 14.5m, 15.1m 
-                    U2 = 14.2m, 15m 
-                    In = 210m, 10m }
-            yield { Number = Some 5
-                    Name = "220х24"
-                    U1 = 23.5m, 24.5m 
-                    U2 = 23m, 24.5m 
-                    In = 260m, 10m }
 
-            for n, name in [ 3, "24х16-ibIIC"; 4,"24х16-ibIIC-P"; 7,"220х16-ibIIC"] do
-                yield { Number = Some n
-                        Name = name
-                        U1 = 14.5m, 15.1m 
-                        U2 = 14.2m, 15m 
-                        In = 170m, 5m }
+module ProductTypes =    
+    let private pt n ucc ducc1 ducc2 uout slt ep   = 
+        
+        {   Number = n
+            Ucc = ucc
+            DUcc1 = ducc1
+            DUcc2 = ducc2
+            Uout = uout
+            SwitchLoadType = slt 
+            ExplosionProtection = ep 
+            Porog1 = slt <> K  
+            Porog2 = slt <> K 
+            Porog3 = slt <> K  && ucc <> 220m
+            ReservedPower = ucc <> 220m
+            Tune =          slt <> K  && uout <> 0m
+            LoadCapacity =  slt <> K  && uout <> 0m  
+        }
 
-            for n,name in [1, "24х16-ibIIB"; 2, "24х16-ibIIB-P"; 6, "220х16-ibIIB"] do
-                yield { Number = Some n
-                        Name = name
-                        U1 = 14.5m, 15.1m 
-                        U2 = 14.2m, 15m 
-                        In = 210m, 10m } ] |> List.sortBy(fun {Number = n} -> n)
+    let private pt24  n = pt n 24m 3.6m 2.4m 
+    let private pt220 n = pt n 220m 43m 23m
+        
+    let defaultProductTypes = 
+        [   pt24  0  24m Rele  None__ 
+            pt24  1  16m None_ BIIB 
+            pt24  2  16m Rele  BIIB 
+            pt24  3  16m None_ BIIC 
+            pt24  4  16m Rele  BIIC 
+            pt220 5  24m None_ None__ 
+            pt220 6  16m None_ BIIB 
+            pt220 7  16m None_ BIIC 
+            pt24  8  0m  None_ None__ 
+            pt24  9  0m  Rele  None__ 
+            pt24  10 24m None_ AIIC
+            pt24  11 24m Rele  AIIC
+            pt220 12 24m None_ AIIC
+            pt24  13 16m K     BIIC 
+            pt24  14 24m K     AIIC  ]  
 
+    open System.ComponentModel
 
-type ProductType with 
-    static member values = productTypes
+    let values, save =  
+        let filename = "productTypes.json"
+        let xs, err = Json.Config.read filename <| fun () -> defaultProductTypes 
+        match err with 
+        | Some err -> Logging.error "%s" err 
+        | _ -> ()
+        let values = new BindingList<ProductType>( ResizeArray<ProductType>(xs) ) 
+        let save() = Json.Config.write filename [ for x in values -> x ]
+        values,save
+
+    let byName s = 
+        values 
+        |> Seq.tryFind( fun pt -> pt.What = s)
+        |> Option.withDefault values.[0]
 
 type Current = 
     | I4 | I12 | I20    
@@ -117,23 +232,28 @@ type Product =
         IsChecked : bool        
         Addr : byte
         Kind : string
-        Serial : string
+        Serial : int
+        Year : int
+        Quarter : int
         Production : Map<ProductionPoint, Logging.Line > }
 
     member x.What = Product.what x
 
     static member id x = x.Id
-    static member serial x = x.Serial
+    static member serial x = x.Serial, x.Quarter, x.Year
 
     static member createNewId() = String.getUniqueKey 12
-    static member what x = sprintf "№%s #%d" x.Serial x.Addr 
+    static member what x = sprintf "№%d #%d" x.Serial x.Addr 
 
     static member New addy = 
         let now = DateTime.Now
         {   Id = Product.createNewId()
             Addr = addy
-            Serial = "?"
+            Serial = 0
             Kind = "?"
+            Year = DateTime.Now.Year
+            Quarter = DateTime.Now.Month /4
+
             IsChecked = true
             Production = Map.empty }
 
@@ -149,39 +269,28 @@ type ProdOpInfo =
 
 type ProdLog = Map<int, ProdOpInfo >
 
-type RLoadLine =
-    | RLoadLine68
-    | RLoadLine91
-    member x.Value = 
-        match x with
-        | RLoadLine68 -> 68m
-        | RLoadLine91 -> 91m
 
-    member x.What = 
-        match x with
-        | RLoadLine68 -> "68 Ом"
-        | RLoadLine91 -> "91 Ом"
-
-    static member Parse str = 
-        if RLoadLine68.What = str then RLoadLine68 else RLoadLine91
 
 module Party =
     
     type Head = 
         {   Id : Id
             Date : DateTime
-            ProductType : ProductType
+            ProductTypeNumber : int
             Name : string
-            Serials : string list   }
+            Serials : (int*int*int) list   }
 
         static member id x = x.Id 
+
+        member x.ProductType = 
+            let y = ProductTypes.values |> Seq.tryFind(fun prodType -> prodType.Number = x.ProductTypeNumber)
+            match y with
+            | Some y -> y
+            | None -> ProductTypes.defaultProductTypes.[0]
 
     type Data = {
         Products : Product list
         ProdLog : ProdLog 
-        RLoadLine : RLoadLine
-        UloadMin : decimal
-        UloadMax : decimal
         }
 
     type Content = Head * Data
@@ -193,7 +302,7 @@ module Party =
             else n
         loop 1uy
 
-    let New name productType count : Content =         
+    let New name productTypeNumber count : Content =         
         let products = 
             [1..count] |> List.map( fun n -> Product.New (byte n) ) 
 
@@ -201,12 +310,9 @@ module Party =
             Serials = List.map Product.serial products 
             Date=DateTime.Now 
             Name = name
-            ProductType = productType }, 
+            ProductTypeNumber = productTypeNumber }, 
             {   Products = products
-                ProdLog = Map.empty 
-                RLoadLine = RLoadLine68
-                UloadMin = 14.2m
-                UloadMax = 15m}
+                ProdLog = Map.empty }
 
 type DelayType = 
     | DelayPowerOn 
