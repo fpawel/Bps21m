@@ -193,8 +193,7 @@ let initialize =
             f b    
         MainWindow.setTooltip b tooltip
         TopBar.thread1ButtonsBar.Controls.Add <| new Panel(Dock = DockStyle.Left, Width = 3)
-        
-        
+
     imgBtn ( "loop","Опрос выбранных параметров приборов партии" ) <| fun _ ->
         runInterrogate()
     
@@ -230,11 +229,31 @@ let initialize =
                 PropertySort.NoSort
         popup.Font <- form.Font        
         popup.Show(buttonSettings)
-
         
     Thread2.scenary.Set (PartyWorks.main())
 
     TopBar.buttonProductTypes.Click.Add <| fun _ ->  
         ProductTypesEdit.create().BringToFront()
 
+    TopBar.buttonReport.Click.Add <| fun _ -> 
+        
+        for p in party.Products do 
+            let str = sprintf "%d_%d_%d_%d" p.Serial p.Quarter p.Year p.Addr
+            let strs =
+                [|  yield sprintf "БПС21-М3 Заводской номер №%d, квартал %d, год %d, сетевой адрес %d" p.Serial p.Quarter p.Year p.Addr
+                    yield sprintf "Исполнение %s" party.ProductType
+                    let mutable n = 1 
+                    for pt in Bps21.ProductionPoint.values do
+                        let s = 
+                            match p.GetProd pt with
+                            | Some (dt, Logging.Error, s) -> sprintf "%A, не удачно: %s" dt s 
+                            | Some (dt, Logging.Info, s) -> sprintf "%A, успешно: %s" dt s 
+                            | Some (dt, _, s) -> sprintf "%A: %s" dt s 
+                            | _ -> "не выполнялась"
+                        yield sprintf "№%d. %s: %s" n pt.What s
+                        n <- n + 1
+            |] 
+            IO.File.WriteAllLines(str + ".txt", strs)
+            Diagnostics.Process.Start(str + ".txt") |> ignore
+            
     fun () -> ()

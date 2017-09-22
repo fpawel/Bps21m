@@ -269,3 +269,4 @@ type Product(p : P, getProductType : unit -> ProductType) =
 
     member x.ProdPtTune4M = getProd (Tune ScaleBeg)
     member x.ProdPtTune20M = getProd (Tune ScaleEnd)
+    member x.GetProd = getProd 

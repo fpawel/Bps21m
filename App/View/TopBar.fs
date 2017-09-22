@@ -15,6 +15,16 @@ let thread2 =
 let right = new Panel(Parent = placeHolder, Dock = DockStyle.Right, AutoSize = true)
 
 let thread1ButtonsBar = new Panel(Parent = placeHolder, Dock = DockStyle.Left, AutoSize = true)
+
+
+let buttonReport = 
+    let x =
+        new Button( Parent = right, Height = 40, Width = 40, Visible = true,
+                    ImageList = Widgets.Icons.instance.imageList1,
+                    FlatStyle = FlatStyle.Flat,
+                    Dock = DockStyle.Right, ImageKey = "doc")
+    right.Controls.Add <| new Panel(Dock = DockStyle.Right, Width = 3)
+    x
     
 let buttonAbout = 
     let x =
@@ -35,9 +45,11 @@ let buttonProductTypes =
         new Button( Parent = right, Height = 40, Width = 40, Visible = true,
                     ImageList = Widgets.Icons.instance.imageList1,
                     FlatStyle = FlatStyle.Flat,
-                    Dock = DockStyle.Right, ImageKey = "tools")
+                    Dock = DockStyle.Right, ImageKey = "todo")
     right.Controls.Add <| new Panel(Dock = DockStyle.Right, Width = 3)
     x
+
+
     
 
 let initialize = 

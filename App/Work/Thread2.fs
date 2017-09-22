@@ -60,7 +60,7 @@ module private Helpers2 =
     
     let showCantExitMessage() = 
         let s = "Нельзя выйти из приложения пока идёт настройка приборов."
-        MessageBox.Show(s,"СТМ-30М", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+        MessageBox.Show(s,"БПС21", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
         |> ignore
 
 let addOperationChangedListener f = 

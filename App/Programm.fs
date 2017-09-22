@@ -39,7 +39,7 @@ let main () =
 
 
 let onAnotherInstanceExist() = 
-    MessageBox.Show( "Нельзя создать более одного экземпляра приложения" ,"Производство СТМ-30М", MessageBoxButtons.OK, MessageBoxIcon.Information ) |> ignore   
+    MessageBox.Show( "Нельзя создать более одного экземпляра приложения" ,"Производство БПС21М", MessageBoxButtons.OK, MessageBoxIcon.Information ) |> ignore   
     
 
 let mutexid = 

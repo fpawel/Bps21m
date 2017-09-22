@@ -110,7 +110,7 @@ let create() =
         let popup,_ = 
             popupDialog
                 { Dlg.def() with 
-                    Dlg.Text = Some  "Пожалуйста, подтвердите необходимость создания нового исполнения СТМ30" 
+                    Dlg.Text = Some  "Пожалуйста, подтвердите необходимость создания нового исполнения" 
                     Dlg.ButtonAcceptText = "Создать" 
                     Dlg.Title = "Новое исполнение"
                     Width = 300 }

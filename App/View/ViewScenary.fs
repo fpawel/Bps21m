@@ -37,16 +37,6 @@ module private Popup =
                 party.ProdLog <- Map.empty 
                 updateGridViewBinding() )
 
-    let delayTime() = 
-        let d = Bps21.ViewModel.DelaysHelperViewModel ()
-        let g = new PropertyGrid(SelectedObject = d, Width = 400,
-                                    Font = new Font("Consolas", 12.f),
-                                    ToolbarVisible = false, Height = 500,
-                                    PropertySort = PropertySort.Alphabetical)
-        let popup = new MyWinForms.Popup(g)    
-        popup
-
-
 module private SelectedOperation = 
 
     let get() = 
@@ -137,12 +127,5 @@ let initialize =
                         TextAlign = ContentAlignment.MiddleLeft)
     b.Click.AddHandler(fun _ _ ->
         Popup.clearLoggigng().Show b )
-
-    let _ = new Panel( Parent = TabsheetScenary.BottomTab, Dock = DockStyle.Top, Height = 3)
-    let b = new Button( Parent = TabsheetScenary.BottomTab, Dock = DockStyle.Top, 
-                        Text = "Длит. задержек", Height = 45, FlatStyle = FlatStyle.Flat,
-                        TextAlign = ContentAlignment.MiddleLeft)
-    b.Click.AddHandler(fun _ _ ->
-        Popup.delayTime().Show b )
 
     fun () -> ()

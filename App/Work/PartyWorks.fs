@@ -117,13 +117,52 @@ type Bps21.ViewModel.Party with
         )   
     }
 
-    member x.WriteNetAddrs() = maybeErr{        
+    member x.SetNetAddrs() = maybeErr{        
         do! x.DoForEachProduct (fun product -> 
-            Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr) 
-            |> ignore         
+            maybeErr{
+                do! x.DoForEachProduct (fun p -> 
+                    let on = 
+                        obj.ReferenceEquals(p,product)
+                        |> Hard.Stend.PowerState.fromBool 
+                    Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
+                    |> p.WriteStend 
+                    |> ignore )
+                do! sleep 5000
+                
+                Hard.Product.comportConfig.BaudRate <- 2400
+                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
+                do! sleep 200
+                do! Hard.Product.SetBoudRate.Perform product.Addr Mdbs.AnswerNotRequired 9600M
+                do! sleep 200
+                Hard.Product.comportConfig.BaudRate <- 9600
+                
+                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired (decimal product.Addr)
+                do! sleep 200
+                let! _ = product.ReadProductCurrent()
+                return ()
+            } |> ignore         
         )   
     }
 
+    member x.SetNetAddrs1() = maybeErr{        
+        do! x.DoForEachProduct (fun product -> 
+            maybeErr{
+                do! x.DoForEachProduct (fun p -> 
+                    let on = 
+                        obj.ReferenceEquals(p,product)
+                        |> Hard.Stend.PowerState.fromBool 
+                    Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
+                    |> p.WriteStend 
+                    |> ignore )
+                do! sleep 5000
+                
+                do! Hard.Product.SetAddr.Perform 0uy Mdbs.AnswerNotRequired 1m
+                do! sleep 200
+                let! _ = Hard.Product.readCurrent 1uy
+                return ()
+            } |> ignore
+        )   
+    }
     
     
 module Delay = 
@@ -594,7 +633,7 @@ let main() =
         }
                     
         yield ("Установка сетевых адресов") <|> fun _ -> maybeErr{
-            do! party.WriteNetAddrs()
+            do! party.SetNetAddrs()
             do! pause 10
         }
         yield writeIDs
@@ -619,7 +658,13 @@ let main() =
 
         if prodType.Porog1 || prodType.Porog2 || prodType.Porog3 then
             yield "Установка порогов" <|> fun () -> 
-                setupPorogs (5.6m, 7.2m, 18.4m)             
+                setupPorogs (5.6m, 7.2m, 18.4m)
+
+        yield ("Установка сетевого адреса 1") <|> fun _ -> maybeErr{
+            do! party.SetNetAddrs1()
+            do! pause 10
+        }
+
     ] |> withСonfig
 
 let all() = 

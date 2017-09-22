@@ -126,6 +126,7 @@ Section "MainSection" SEC01
   File "..\App\Bin\Release\*.dll"
   File "..\App\Bin\Release\*.config"
   File "..\App\Bin\Release\*.xml"
+  File "..\App\Bin\Release\*doc"
   
   
 ; Shortcuts

@@ -104,8 +104,6 @@
     <Compile Include="View\TopBar.fs" />
     <Compile Include="View\ViewProducts.fs" />
     <Compile Include="View\TabPages.fs" />
-    <Compile Include="View\DelaysHelpViewModel1.fs" />
-    <Compile Include="View\DelaysHelpViewModel.fs" />
     <Compile Include="View\ViewScenary.fs" />
     <Compile Include="View\Thread2Views.fs" />
     <Compile Include="View\ReportView.fs" />
@@ -144,6 +142,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="packages.config" />
+    <None Include="Руководство оператора.doc">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MyWinForms\MyWinForms.csproj">
