@@ -49,6 +49,14 @@ type Product(p : P, getProductType : unit -> ProductType) =
     override x.RaisePropertyChanged propertyName = 
         ViewModelBase.raisePropertyChanged x propertyName
 
+    member x.SwitchOffRS485() =
+        let r = Mdbs.switchOffRS485 (appCfg.Comport) p.Addr 
+        x.Connection <- 
+            r
+            |> Result.map( fun () -> "отключение RS-485" )
+            |> Some
+        r
+
     member x.WriteProduct (cmd:Hard.Product.Cmd, value) =
         let r = cmd.Perform x.Addr Mdbs.AnswerRequired value
         x.Connection <- 

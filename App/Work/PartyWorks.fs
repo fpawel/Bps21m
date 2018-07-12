@@ -107,10 +107,7 @@ type Bps21.ViewModel.Party with
         do! x.DoForEachProduct (fun product -> 
             maybeErr{
                 do! x.DoForEachProduct (fun p -> 
-                    let on = 
-                        obj.ReferenceEquals(p,product)
-                        |> Hard.Stend.PowerState.fromBool 
-                    Hard.Stend.SetPower(Hard.Stend.PowerMain, on)
+                    Hard.Stend.SetPower(Hard.Stend.PowerMain, Hard.Stend.PowerOn)
                     |> p.WriteStend 
                     |> ignore )
             } |> ignore         
@@ -161,6 +158,13 @@ type Bps21.ViewModel.Party with
                 let! _ = Hard.Product.readCurrent 1uy
                 return ()
             } |> ignore
+        )   
+    }
+
+    member x.SwitchOffRS485() = maybeErr{        
+        do! x.DoForEachProduct (fun product -> 
+            product.SwitchOffRS485()
+            |> ignore
         )   
     }
     
@@ -627,15 +631,23 @@ let main() =
     let prodType = prodType()
     let test x = simpleTest x ()
     "Настройка БПС-21М3" <||> [
-        yield ("Подача питания и прогрев", TimeSpan.FromMinutes 5., DelayPowerOn) <-|-> fun getTime -> maybeErr{
-            do! party.MainPowerOn()
-            do! Delay.perform  "Прогрев" getTime false 
-        }
-                    
+
+        
         yield ("Установка сетевых адресов") <|> fun _ -> maybeErr{
             do! party.SetNetAddrs()
             do! pause 10
         }
+
+        yield ("Подача питания") <|> fun _ -> maybeErr{
+            do! party.MainPowerOn()
+            do! pause 10
+        }
+
+        yield ("Прогрев", TimeSpan.FromMinutes 5., DelayPowerOn) <-|-> fun getTime -> maybeErr{
+            do! Delay.perform  "Прогрев" getTime false 
+        }
+                    
+        
         yield writeIDs
         yield readIDs
         if prodType.Tune then
@@ -665,6 +677,12 @@ let main() =
             do! pause 10
         }
 
+        if prodType.Ucc = 220M then
+            yield ("Отключение RS-485") <|> fun _ -> maybeErr{
+                do! party.SwitchOffRS485()
+            }
+
+
     ] |> withСonfig
 
 let all() = 
@@ -692,5 +710,3 @@ type Bps21.ViewModel.Party with
     member x.RunWriteProduct (cmd:Hard.Product.Cmd, value) = 
         sprintf "%s, %M" cmd.What value -->> fun () -> 
             party.WriteProducts (cmd,value)
-
-    

@@ -37,7 +37,6 @@ let form =
         x.Icon <- customIcon
     with e ->
         Logging.error "fail to set icon.ico from %A : %A" path e
-    let mutable isClosed = false    
     x
 
 let setTooltip<'a when 'a :> Control > (x:'a) text = 

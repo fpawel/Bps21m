@@ -186,6 +186,21 @@ let write16 port what addy answerDemand firstRegister dt  =
                 |> Err 
         
 
+let switchOffRS485 port addy =
+    
+    let request = 
+        {   cmd = 0x10uy
+            addy = addy
+            data  = [|0uy; 0x20uy; 0uy; 1uy; 2uy; 0x10uy; 0uy; |]
+            what  = "отключение RS-485" }        
+        
+    getResponse port request (fun x -> "")  <| function
+            |  [ 0uy; 0x20uy; 0uy; 1uy; ]  -> Ok ()
+            | BytesToStr s ->
+                bytesToStr [ 0uy; 0x20uy; 0uy; 1uy; ]
+                |> sprintf "Неверный формат ответа %A, должно быть %s" s 
+                |> Err 
+
 let read3<'a> port what addy registerNumber registersCount formatResult parse : Result<'a, string>=
     let data = 
         [|  registerNumber >>> 8

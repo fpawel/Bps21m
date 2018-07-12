@@ -35,8 +35,7 @@ namespace Widgets
                     "Чтобы открыть страницу загрузки последнеей версии ПО, " + 
                     "вставьте содержимое буера обмена в адресную строку браузера.", 
                     "", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-                
+            }              
            
         }
 
