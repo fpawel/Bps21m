@@ -672,17 +672,15 @@ let main() =
             yield "Установка порогов" <|> fun () -> 
                 setupPorogs (5.6m, 7.2m, 18.4m)
 
+        if prodType.Ucc = 220M then
+            yield ("Отключение RS-485") <|> fun _ -> maybeErr{
+                do! party.SwitchOffRS485()
+        }
+
         yield ("Установка сетевого адреса 1") <|> fun _ -> maybeErr{
             do! party.SetNetAddrs1()
             do! pause 10
         }
-
-        if prodType.Ucc = 220M then
-            yield ("Отключение RS-485") <|> fun _ -> maybeErr{
-                do! party.SwitchOffRS485()
-            }
-
-
     ] |> withСonfig
 
 let all() = 
