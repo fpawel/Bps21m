@@ -248,9 +248,23 @@ let read3decimal port addy registerNumber what =
         | Bin.AnalitBCD6 v -> Ok v
         | BytesToStr x -> Err <| sprintf "Ошибка преобразования BCD %s" x
 
+let convertBytesToBigEndian (data : byte []) = 
+    let mutable tmp = data.[0]
+    data.[0] <- data.[3]
+    data.[3] <- tmp
+    tmp <- data.[1]
+    data.[1] <- data.[2]
+    data.[2] <- tmp
 
-
-
+let read3float port addy registerNumber what =
+    read3 port what addy registerNumber 2 (sprintf "%M") (
+        List.toArray
+        >> fun x -> 
+            let xs = Seq.toArray x
+            convertBytesToBigEndian xs
+            let x = System.BitConverter.ToSingle(xs,0)
+            if System.Single.IsNaN(x) then System.Decimal.MinValue else decimal(x)
+        >> Ok )
 
 let private (|ConvList|) f = List.map f
 let private (|NIn|) xs n = 

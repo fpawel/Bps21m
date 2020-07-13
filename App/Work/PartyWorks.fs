@@ -346,7 +346,10 @@ let testTuneMode (p:P) = maybeErr{
         return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b 
     }
 
-let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{        
+let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{    
+    
+    let pauseTimeSec = 3
+    
     product.Connection <- None
     let tuneErrorLimit = 
         match scalePoint with
@@ -365,22 +368,24 @@ let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{
         abs(current - In) < tuneErrorLimit
 
     let mutable d = 50m
-    let tune() = maybeErr{        
+    let writeCorrectionCmd() = maybeErr{        
         if d > 999990m then 
             d <- 999990m
         elif d < -999990m then 
             d <- -999990m
         elif d = 0m then
             d <- 50m
-        do! product.WriteProduct ( Cmd.Tune scalePoint, d )
-        do! sleep 100
+        do! product.WriteProduct ( Cmd.Tune scalePoint, d )  
+        do! pause pauseTimeSec
     }
 
     do! readCurrent()
     if isOK() then return! None else
     let mutable I1 = current       
-    do! tune()    
+    do! writeCorrectionCmd()    
+    
     do! readCurrent()
+        
     let mutable I2 = current    
 
     let startTime = DateTime.Now
@@ -390,14 +395,14 @@ let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{
         else 
             None 
 
-    while (not <| isOK()) do
+    while (not <| isOK()) do        
         do! testTimeout()        
         do! testTuneMode product
         let sign = if current > In then -1m else 1m
         if I2 = I1 then 
             do! Some <| sprintf "I2 = I1 = %M" I1
         d <- sign * abs(  d * (In - I2) / (I2 - I1) )
-        do! tune()
+        do! writeCorrectionCmd()
         do! readCurrent()
         Logging.info "I=%M I1=%M I2=%M  d=%M " current I1 I2  d
         I1 <- I2

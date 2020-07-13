@@ -84,7 +84,7 @@ type Product(p : P, getProductType : unit -> ProductType) =
         r
 
     member x.ReadStendCurrent() = 
-        let r = Hard.Stend.readCurrent x.Addr
+        let r = Hard.Stend.readCurrent (int(x.Addr))
         r |> Result.iter (fun value -> 
             stendCurrent <- Some value
             x.RaisePropertyChanged "StendCurrent" )

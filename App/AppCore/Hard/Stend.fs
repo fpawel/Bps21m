@@ -66,7 +66,11 @@ let read3 n addr what =
     Mdbs.read3decimal comportConfig (addrbyte n) addr (sprintf "СТЕНД %d: %s" n what)
 
 let readCurrent n = 
-    read3 n 0 "ток"
+    if (n < 1) || (n > 5) then Err (sprintf "n=%d: must be 1..5" n) else
+    let xs = [0x04; 0x0A; 0x10; 0x16; 0x1C]
+    let addr = 0x10uy
+    let reg = xs.[n-1]
+    Mdbs.read3float comportConfig addr reg (sprintf "СТЕНД %d: считывание тока" n)
     
 let readTensionOpenCircuit n =
     read3 n 2 "напряжение линии питания датчика без нагрузки" 
