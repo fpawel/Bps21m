@@ -256,15 +256,26 @@ let convertBytesToBigEndian (data : byte []) =
     data.[1] <- data.[2]
     data.[2] <- tmp
 
+let ErrNaN : Result<decimal, string> = Err "NaN"
+
 let read3float port addy registerNumber what =
-    read3 port what addy registerNumber 2 (sprintf "%M") (
-        List.toArray
-        >> fun x -> 
-            let xs = Seq.toArray x
-            convertBytesToBigEndian xs
-            let x = System.BitConverter.ToSingle(xs,0)
-            if System.Single.IsNaN(x) then System.Decimal.MinValue else decimal(x)
-        >> Ok )
+
+    let bytesToDecimal xs =         
+        try
+            let x = System.BitConverter.ToSingle(xs,0)                
+            if System.Single.IsNaN(x) then 
+                ErrNaN 
+            else 
+                x |> decimal |> Ok
+        with _ ->
+            ErrNaN
+
+    let parseBytes bytes = 
+        let xs = Seq.toArray bytes
+        convertBytesToBigEndian xs
+        bytesToDecimal xs        
+
+    read3 port what addy registerNumber 2 (sprintf "%M") parseBytes
 
 let private (|ConvList|) f = List.map f
 let private (|NIn|) xs n = 

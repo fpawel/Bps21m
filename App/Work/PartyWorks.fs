@@ -346,6 +346,8 @@ let testTuneMode (p:P) = maybeErr{
         return! Some <| sprintf "СТАТУС, СП.РЕЖИМ, ОТКАЗ: %A, должно быть %A" a b 
     }
 
+ 
+
 let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{    
     
     let pauseTimeSec = 3
@@ -358,11 +360,20 @@ let tuneProduct (product:P) scalePoint  getTimeout =  maybeErr{
         |> abs
     let In = scalePoint.Current.Value      
     
+    let rec readCurrentN n = 
+        let x = product.ReadStendCurrent()
+        let _ = sleep 1000
+        if (x = Mdbs.ErrNaN) && (n < 5) then         
+            readCurrentN (n+1)
+        else 
+            x
+
     let mutable current = 0m
+
     let readCurrent() = maybeErr{
-        let! a = product.ReadStendCurrent()
-        current <- a
-    }
+        let! x = readCurrentN 0
+        current <- x
+    }        
 
     let isOK() = 
         abs(current - In) < tuneErrorLimit

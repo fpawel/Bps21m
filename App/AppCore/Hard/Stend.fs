@@ -71,6 +71,7 @@ let readCurrent n =
     let addr = 0x10uy
     let reg = xs.[n-1]
     Mdbs.read3float comportConfig addr reg (sprintf "СТЕНД %d: считывание тока" n)
+    |> Result.map( (*) 1.24M )
     
 let readTensionOpenCircuit n =
     read3 n 2 "напряжение линии питания датчика без нагрузки" 
